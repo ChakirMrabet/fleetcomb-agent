@@ -1,11 +1,12 @@
 using System.Security.Cryptography;
 using System.Text;
+using FleetComb.Agent.Application.Abstractions;
 
-namespace FleetComb.Agent;
+namespace FleetComb.Agent.Infrastructure.Cloud;
 
-public static class AgentIdentity
+public sealed class AgentIdentityProvider : IAgentIdentityProvider
 {
-    public static (string PublicKey, string PrivateKey) Create()
+    public (string PublicKey, string PrivateKey) Create()
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         return (
@@ -13,7 +14,11 @@ public static class AgentIdentity
             Convert.ToBase64String(key.ExportPkcs8PrivateKey()));
     }
 
-    public static string Sign(string privateKey, string payload)
+    public string CreateLocalApiToken() =>
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    internal static string Sign(string privateKey, string payload)
     {
         using var key = ECDsa.Create();
         key.ImportPkcs8PrivateKey(Convert.FromBase64String(privateKey), out _);
@@ -21,7 +26,7 @@ public static class AgentIdentity
             Encoding.UTF8.GetBytes(payload), HashAlgorithmName.SHA256));
     }
 
-    public static string SignaturePayload(
+    internal static string SignaturePayload(
         Guid installationId, long timestamp, string nonce, string bodyHash) =>
         $"{installationId:D}\n{timestamp}\n{nonce}\n{bodyHash.ToLowerInvariant()}";
 }

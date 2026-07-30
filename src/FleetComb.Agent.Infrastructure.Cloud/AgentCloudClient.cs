@@ -3,17 +3,19 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Globalization;
+using FleetComb.Agent.Application.Abstractions;
+using FleetComb.Agent.Domain;
 
-namespace FleetComb.Agent;
+namespace FleetComb.Agent.Infrastructure.Cloud;
 
-public sealed class AgentApiClient(HttpClient httpClient)
+public sealed class AgentCloudClient(HttpClient httpClient) : IAgentCloudClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public async Task<ClaimResponse> ClaimAsync(
-        Uri serverUrl, string code, string publicKey, CancellationToken cancellationToken)
+    public async Task<EnrollmentClaim> ClaimAsync(
+        Uri serverUrl, string code, string publicKey, PlatformInformation platform,
+        CancellationToken cancellationToken)
     {
-        var platform = PlatformInformation.Current();
         using var response = await httpClient.PostAsJsonAsync(
             new Uri(serverUrl, "/agent/v1/enrollments/claim"),
             new ClaimRequest(
@@ -21,13 +23,16 @@ public sealed class AgentApiClient(HttpClient httpClient)
                 platform.OsFamily, platform.OsVersion, platform.Architecture),
             JsonOptions, cancellationToken);
         await EnsureSuccessAsync(response, "enrollment", cancellationToken);
-        return await response.Content.ReadFromJsonAsync<ClaimResponse>(
+        var claim = await response.Content.ReadFromJsonAsync<ClaimResponse>(
             JsonOptions, cancellationToken)
             ?? throw new InvalidOperationException("FleetComb returned an empty enrollment response.");
+        return new EnrollmentClaim(
+            claim.TenantId, claim.AssetId, claim.AgentInstallationId,
+            claim.HeartbeatIntervalSeconds, claim.ServerTime);
     }
 
-    public async Task<HeartbeatResponse> HeartbeatAsync(
-        AgentState state, long uptimeSeconds,
+    public async Task<HeartbeatResult> HeartbeatAsync(
+        AgentRegistration state, long uptimeSeconds,
         IReadOnlyList<ApplicationObservation> applications,
         CancellationToken cancellationToken)
     {
@@ -38,7 +43,7 @@ public sealed class AgentApiClient(HttpClient httpClient)
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var nonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
         var bodyHash = Convert.ToHexStringLower(SHA256.HashData(body));
-        var payload = AgentIdentity.SignaturePayload(
+        var payload = AgentIdentityProvider.SignaturePayload(
             state.InstallationId, timestamp, nonce, bodyHash);
         using var request = new HttpRequestMessage(
             HttpMethod.Post, new Uri(state.ServerUrl, "/agent/v1/heartbeat"))
@@ -51,16 +56,19 @@ public sealed class AgentApiClient(HttpClient httpClient)
         request.Headers.Add("X-FleetComb-Installation", state.InstallationId.ToString("D"));
         request.Headers.Add("X-FleetComb-Timestamp", timestamp.ToString());
         request.Headers.Add("X-FleetComb-Nonce", nonce);
-        request.Headers.Add("X-FleetComb-Signature", AgentIdentity.Sign(state.PrivateKey, payload));
+        request.Headers.Add(
+            "X-FleetComb-Signature", AgentIdentityProvider.Sign(state.PrivateKey, payload));
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, "heartbeat", cancellationToken);
-        return await response.Content.ReadFromJsonAsync<HeartbeatResponse>(
+        var heartbeat = await response.Content.ReadFromJsonAsync<HeartbeatResponse>(
             JsonOptions, cancellationToken)
             ?? throw new InvalidOperationException("FleetComb returned an empty heartbeat response.");
+        return new HeartbeatResult(
+            heartbeat.ServerTime, heartbeat.NextHeartbeatSeconds, heartbeat.DesiredState);
     }
 
     public async Task DownloadReleaseAsync(
-        AgentState state, DesiredRelease release, string destination,
+        AgentRegistration state, DesiredRelease release, string destination,
         IProgress<int> progress, CancellationToken cancellationToken)
     {
         var body = JsonSerializer.SerializeToUtf8Bytes(
@@ -94,12 +102,12 @@ public sealed class AgentApiClient(HttpClient httpClient)
     }
 
     private static HttpRequestMessage SignedRequest(
-        AgentState state, string path, byte[] body)
+        AgentRegistration state, string path, byte[] body)
     {
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var nonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
         var bodyHash = Convert.ToHexStringLower(SHA256.HashData(body));
-        var payload = AgentIdentity.SignaturePayload(
+        var payload = AgentIdentityProvider.SignaturePayload(
             state.InstallationId, timestamp, nonce, bodyHash);
         var request = new HttpRequestMessage(HttpMethod.Post, new Uri(state.ServerUrl, path))
         {
@@ -113,7 +121,7 @@ public sealed class AgentApiClient(HttpClient httpClient)
             "X-FleetComb-Timestamp", timestamp.ToString(CultureInfo.InvariantCulture));
         request.Headers.Add("X-FleetComb-Nonce", nonce);
         request.Headers.Add(
-            "X-FleetComb-Signature", AgentIdentity.Sign(state.PrivateKey, payload));
+            "X-FleetComb-Signature", AgentIdentityProvider.Sign(state.PrivateKey, payload));
         return request;
     }
 

@@ -1,11 +1,12 @@
 using System.Runtime.InteropServices;
+using FleetComb.Agent.Application.Abstractions;
+using FleetComb.Agent.Domain;
 
-namespace FleetComb.Agent;
+namespace FleetComb.Agent.Infrastructure.Cloud;
 
-public sealed record PlatformInformation(
-    string Hostname, string OsFamily, string OsVersion, string Architecture)
+public sealed class PlatformInformationProvider : IPlatformInformationProvider
 {
-    public static PlatformInformation Current() => new(
+    public PlatformInformation Current() => new(
         Environment.MachineName,
         OperatingSystem.IsWindows() ? "Windows" :
         OperatingSystem.IsLinux() ? "Linux" :

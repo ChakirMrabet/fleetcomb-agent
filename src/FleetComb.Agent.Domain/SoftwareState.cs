@@ -1,4 +1,4 @@
-namespace FleetComb.Agent;
+namespace FleetComb.Agent.Domain;
 
 public sealed record DesiredState(
     Guid AssetId,
@@ -46,16 +46,4 @@ public sealed record UpdateStatus(
 {
     public static UpdateStatus Idle() =>
         new(null, null, "Idle", 0, "No update is running.", DateTimeOffset.UtcNow);
-}
-
-public interface ISoftwareStateStore
-{
-    Task<DesiredState?> LoadDesiredAsync(CancellationToken cancellationToken);
-    Task SaveDesiredAsync(DesiredState desired, CancellationToken cancellationToken);
-    Task<IReadOnlyList<ApplicationObservation>> LoadInventoryAsync(
-        CancellationToken cancellationToken);
-    Task SaveObservationAsync(
-        ApplicationObservation observation, CancellationToken cancellationToken);
-    Task<UpdateStatus> LoadUpdateStatusAsync(CancellationToken cancellationToken);
-    Task SaveUpdateStatusAsync(UpdateStatus status, CancellationToken cancellationToken);
 }

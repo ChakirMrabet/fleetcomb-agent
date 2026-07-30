@@ -1,13 +1,15 @@
-using System.Diagnostics;
+using FleetComb.Agent.Application.Abstractions;
+using FleetComb.Agent.Domain;
 using Microsoft.Extensions.Logging;
 
-namespace FleetComb.Agent;
+namespace FleetComb.Agent.Application;
 
-public sealed class UpdateCoordinator(
-    IAgentStateStore agentStateStore,
-    ISoftwareStateStore softwareState,
-    AgentApiClient api,
-    ILogger<UpdateCoordinator> logger)
+public sealed class UpdateService(
+    IAgentRegistrationStore registrations,
+    ISoftwareStateStore software,
+    IAgentCloudClient cloud,
+    IEnumerable<IReleaseInstaller> installers,
+    ILogger<UpdateService> logger)
 {
     private readonly SemaphoreSlim gate = new(1, 1);
 
@@ -15,12 +17,12 @@ public sealed class UpdateCoordinator(
         Guid applicationId, CancellationToken cancellationToken)
     {
         if (!await gate.WaitAsync(0, cancellationToken))
-            return await softwareState.LoadUpdateStatusAsync(cancellationToken);
+            return await software.LoadUpdateStatusAsync(cancellationToken);
         try
         {
-            var agent = await agentStateStore.LoadAsync(cancellationToken)
+            var registration = await registrations.LoadAsync(cancellationToken)
                 ?? throw new InvalidOperationException("The Agent is not enrolled.");
-            var desired = await softwareState.LoadDesiredAsync(cancellationToken)
+            var desired = await software.LoadDesiredAsync(cancellationToken)
                 ?? throw new InvalidOperationException(
                     "Desired software has not been received from FleetComb yet.");
             var application = desired.SoftwarePlatforms
@@ -30,46 +32,42 @@ public sealed class UpdateCoordinator(
                     "The Application is not assigned to this Asset.");
             var release = application.LatestRelease
                 ?? throw new InvalidOperationException(
-                    "No published release matches this Agent's platform.");
-            var stagingDirectory = Path.Combine(AgentDataDirectory.Resolve(), "updates");
+                    "No published release matches this Agent platform.");
+            var stagingDirectory = Path.Combine(registrations.DataDirectory, "updates");
             Directory.CreateDirectory(stagingDirectory);
             var artifactPath = Path.Combine(
                 stagingDirectory, $"{release.Id:N}-{Path.GetFileName(release.FileName)}");
-            await SaveStatus(
-                applicationId, release.Id, "Downloading", 0,
+            await SaveStatus(applicationId, release.Id, "Downloading", 0,
                 $"Downloading {release.FileName}.", cancellationToken);
-            var progress = new InlineProgress<int>(percent =>
-                SaveStatus(
-                    applicationId, release.Id, "Downloading", percent,
-                    $"Downloading {release.FileName}.", CancellationToken.None)
-                    .GetAwaiter().GetResult());
-            await api.DownloadReleaseAsync(
-                agent, release, artifactPath, progress, cancellationToken);
-            await SaveStatus(
-                applicationId, release.Id, "Verified", 100,
+            await cloud.DownloadReleaseAsync(
+                registration, release, artifactPath,
+                new InlineProgress<int>(percent =>
+                    SaveStatus(applicationId, release.Id, "Downloading", percent,
+                            $"Downloading {release.FileName}.", CancellationToken.None)
+                        .GetAwaiter().GetResult()),
+                cancellationToken);
+            await SaveStatus(applicationId, release.Id, "Verified", 100,
                 "Artifact length and SHA-256 checksum verified.", cancellationToken);
-            if (release.PackageType is "Pkg" or "Zip")
+            var installer = installers.FirstOrDefault(item => item.CanInstall(release));
+            if (installer is null)
                 return await SaveStatus(
                     applicationId, release.Id, "AwaitingAdapter", 100,
                     $"Customer adapter must install: {artifactPath}", cancellationToken);
-            await SaveStatus(
-                applicationId, release.Id, "Installing", 100,
+            await SaveStatus(applicationId, release.Id, "Installing", 100,
                 $"Installing {release.FileName}.", cancellationToken);
-            var exitCode = await RunStandardInstaller(release, artifactPath, cancellationToken);
+            var exitCode = await installer.InstallAsync(release, artifactPath, cancellationToken);
             if (exitCode != 0)
-                return await SaveStatus(
-                    applicationId, release.Id, "Failed", 100,
+                return await SaveStatus(applicationId, release.Id, "Failed", 100,
                     $"Installer exited with code {exitCode}.", cancellationToken);
             await RecordInstalled(applicationId, release, cancellationToken);
-            return await SaveStatus(
-                applicationId, release.Id, "Completed", 100,
+            return await SaveStatus(applicationId, release.Id, "Completed", 100,
                 $"Application {release.Version} installed.", cancellationToken);
         }
         catch (Exception exception) when (
             exception is HttpRequestException or IOException or InvalidOperationException)
         {
             logger.LogError(exception, "Software update failed.");
-            var current = await softwareState.LoadUpdateStatusAsync(cancellationToken);
+            var current = await software.LoadUpdateStatusAsync(cancellationToken);
             return await SaveStatus(
                 current.ApplicationId, current.SoftwareReleaseId, "Failed",
                 current.ProgressPercent, exception.Message, cancellationToken);
@@ -80,13 +78,11 @@ public sealed class UpdateCoordinator(
     public async Task<UpdateStatus> CompleteAdapterInstallAsync(
         Guid applicationId, bool succeeded, string message, CancellationToken cancellationToken)
     {
-        var current = await softwareState.LoadUpdateStatusAsync(cancellationToken);
-        if (current.State != "AwaitingAdapter" ||
-            current.ApplicationId != applicationId ||
-            !current.SoftwareReleaseId.HasValue)
+        var current = await software.LoadUpdateStatusAsync(cancellationToken);
+        if (current.State != "AwaitingAdapter" || current.ApplicationId != applicationId)
             throw new InvalidOperationException(
                 "There is no customer-adapter installation awaiting completion.");
-        var desired = await softwareState.LoadDesiredAsync(cancellationToken)
+        var desired = await software.LoadDesiredAsync(cancellationToken)
             ?? throw new InvalidOperationException("Desired software is unavailable.");
         var release = desired.SoftwarePlatforms.SelectMany(item => item.Applications)
             .Single(item => item.Id == applicationId).LatestRelease!;
@@ -95,38 +91,15 @@ public sealed class UpdateCoordinator(
             applicationId, release.Id, succeeded ? "Completed" : "Failed", 100,
             string.IsNullOrWhiteSpace(message)
                 ? succeeded ? $"Application {release.Version} installed." : "Installation failed."
-                : message.Trim(),
-            cancellationToken);
+                : message.Trim(), cancellationToken);
     }
 
-    private async Task RecordInstalled(
+    private Task RecordInstalled(
         Guid applicationId, DesiredRelease release, CancellationToken cancellationToken) =>
-        await softwareState.SaveObservationAsync(
+        software.SaveObservationAsync(
             new ApplicationObservation(
                 applicationId, release.Id, release.Version, "AgentInstalled",
-                DateTimeOffset.UtcNow),
-            cancellationToken);
-
-    private static async Task<int> RunStandardInstaller(
-        DesiredRelease release, string artifactPath, CancellationToken cancellationToken)
-    {
-        ProcessStartInfo start;
-        if (release.PackageType == "Deb" && OperatingSystem.IsLinux())
-            start = new ProcessStartInfo("dpkg")
-            {
-                UseShellExecute = false,
-                ArgumentList = { "--install", artifactPath }
-            };
-        else if (release.PackageType == "Exe" && OperatingSystem.IsWindows())
-            start = new ProcessStartInfo(artifactPath) { UseShellExecute = false };
-        else
-            throw new InvalidOperationException(
-                $"{release.PackageType} is not a standard installer on this operating system.");
-        using var process = Process.Start(start)
-            ?? throw new InvalidOperationException("The installer process could not be started.");
-        await process.WaitForExitAsync(cancellationToken);
-        return process.ExitCode;
-    }
+                DateTimeOffset.UtcNow), cancellationToken);
 
     private async Task<UpdateStatus> SaveStatus(
         Guid? applicationId, Guid? releaseId, string state, int progress,
@@ -134,7 +107,7 @@ public sealed class UpdateCoordinator(
     {
         var status = new UpdateStatus(
             applicationId, releaseId, state, progress, message, DateTimeOffset.UtcNow);
-        await softwareState.SaveUpdateStatusAsync(status, cancellationToken);
+        await software.SaveUpdateStatusAsync(status, cancellationToken);
         return status;
     }
 

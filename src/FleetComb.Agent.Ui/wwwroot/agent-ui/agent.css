@@ -1,0 +1,67 @@
+:root {
+  color-scheme: light dark;
+  --accent: #e94f20;
+  --surface: #fff;
+  --canvas: #f5f3ef;
+  --text: #24221f;
+  --muted: #6f6a63;
+  --border: #d8d3cc;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: var(--text);
+  background: var(--canvas);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+.shell-header {
+  display: flex;
+  min-height: 4rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 5vw;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.brand { color: inherit; font-size: 1.1rem; font-weight: 800; text-decoration: none; }
+.brand span, .eyebrow { color: var(--accent); }
+main { width: min(72rem, 90vw); margin: 0 auto; padding: 2.5rem 0 5rem; }
+.hero { margin-bottom: 2rem; }
+h1 { margin: .25rem 0; font-size: clamp(2rem, 5vw, 3.7rem); }
+h2 { margin-top: 0; }
+.eyebrow { margin: 0; font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
+article, .panel, .form-card {
+  padding: 1.4rem;
+  border: 1px solid var(--border);
+  border-radius: .8rem;
+  background: var(--surface);
+}
+.panel { margin-top: 1rem; overflow-x: auto; }
+.form-card { width: min(34rem, 100%); margin: 5vh auto; }
+form { display: grid; gap: .7rem; }
+label { margin-top: .5rem; font-weight: 700; }
+input, button {
+  min-height: 2.75rem;
+  padding: .6rem .75rem;
+  border: 1px solid var(--border);
+  border-radius: .45rem;
+  font: inherit;
+}
+button { color: #fff; border-color: var(--accent); background: var(--accent); font-weight: 750; cursor: pointer; }
+button.quiet { min-height: auto; color: var(--text); border-color: transparent; background: transparent; }
+.danger { border-color: #b42318; background: #b42318; }
+nav { display: flex; align-items: center; gap: 1rem; }
+nav a { color: var(--text); font-size: .9rem; }
+nav form { display: block; }
+dl div { margin-bottom: .7rem; }
+dt { color: var(--muted); font-size: .8rem; }
+dd { margin: .15rem 0 0; overflow-wrap: anywhere; font-weight: 700; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: .75rem; border-bottom: 1px solid var(--border); text-align: left; }
+small { color: var(--muted); font-weight: 400; }
+progress { width: 100%; accent-color: var(--accent); }
+.error { color: #b42318; }
+@media (prefers-color-scheme: dark) {
+  :root { --surface: #252320; --canvas: #191816; --text: #f4f0ea; --muted: #b8b1a8; --border: #45413c; }
+}

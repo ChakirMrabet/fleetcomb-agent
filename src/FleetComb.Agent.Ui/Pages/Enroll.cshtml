@@ -1,0 +1,25 @@
+@page
+@model EnrollModel
+@{
+    ViewData["Title"] = "Enroll";
+}
+<section class="form-card">
+  <p class="eyebrow">First-time setup</p>
+  <h1>Enroll this instrument</h1>
+  <p>Generate a temporary enrollment code from the Asset page in FleetComb.</p>
+  <form method="post">
+    <div asp-validation-summary="ModelOnly" class="error"></div>
+    <label asp-for="Input.ServerUrl">FleetComb address</label>
+    <input asp-for="Input.ServerUrl" />
+    <span asp-validation-for="Input.ServerUrl" class="error"></span>
+    <label asp-for="Input.EnrollmentCode">Enrollment code</label>
+    <input asp-for="Input.EnrollmentCode" autocomplete="off" />
+    <span asp-validation-for="Input.EnrollmentCode" class="error"></span>
+    <label asp-for="Input.AdministratorPassword">Local administrator password</label>
+    <input asp-for="Input.AdministratorPassword" type="password" autocomplete="new-password" />
+    <span asp-validation-for="Input.AdministratorPassword" class="error"></span>
+    <label asp-for="Input.ConfirmPassword">Confirm password</label>
+    <input asp-for="Input.ConfirmPassword" type="password" autocomplete="new-password" />
+    <button type="submit">Enroll Agent</button>
+  </form>
+</section>

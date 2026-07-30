@@ -13,6 +13,34 @@ Cross-platform FleetComb equipment Agent. The first slice supports:
 - durable Agent-installed and externally reported Application inventory;
 - streamed update downloads with length and SHA-256 verification;
 - standard `.deb` and Windows `.exe` installation plus customer-adapter handoff.
+- a LAN-accessible Razor Pages UI with enrollment, local-administrator authentication, status,
+  desired software, inventory, and update progress.
+
+## Architecture
+
+The Agent uses the same inward dependency direction as the FleetComb backend:
+
+```text
+FleetComb.Agent.Domain
+        ↑
+FleetComb.Agent.Application
+        ↑
+Infrastructure.Cloud / Infrastructure.Persistence / Infrastructure.Updates
+        ↑
+FleetComb.Agent.Api
+        ↓
+FleetComb.Agent.Ui
+```
+
+- **Domain** owns Agent registration, desired software, inventory, and update state.
+- **Application** owns enrollment, synchronization, and update use cases plus infrastructure ports.
+- **Infrastructure** implements FleetComb cloud communication, durable files, platform identity,
+  and standard installers.
+- **API** is the single executable and composition root. It hosts Windows Service/systemd,
+  customer integration endpoints, authentication, and the web server.
+- **UI** is a Razor class library containing pages and bundled offline assets.
+
+Architecture tests prevent inward projects from referencing API, UI, or Infrastructure.
 
 ## Development
 
@@ -21,20 +49,37 @@ dotnet restore
 dotnet build
 
 export FLEETCOMB_AGENT_DATA_DIR="$PWD/agent-state"
-dotnet run --project src/FleetComb.Agent -- \
+dotnet run --project src/FleetComb.Agent.Api -- \
   enroll --server http://localhost:5000 --code 'FC1-...'
-dotnet run --project src/FleetComb.Agent
+dotnet run --project src/FleetComb.Agent.Api
 ```
 
-Enrollment prints the local API token once. The local API listens only on
-`http://127.0.0.1:5137/local/v1`. Customer software sends the token as
+When `FLEETCOMB_AGENT_DATA_DIR` is omitted during Linux development, state is stored under the
+current user's local application-data directory (`~/.local/share/FleetComb/Agent`). The supplied
+systemd unit explicitly uses `/var/lib/fleetcomb-agent` and runs under the dedicated service user.
+Set the environment variable before enrollment whenever you want an isolated development state.
+
+The web interface listens on `http://0.0.0.0:5137` in development so a laptop on the instrument
+network can open `http://INSTRUMENT-IP:5137`. First-time web enrollment creates a separate local
+administrator password. CLI enrollment redirects the first browser visit to password setup.
+
+An authenticated **Reset enrollment** page moves local credentials and state into
+`reset-backups/TIMESTAMP` and returns the instrument to enrollment. Generate a **Replace Agent**
+code in FleetComb before enrolling again; its successful claim invalidates the previous cloud
+identity.
+
+Set `AgentWeb__Urls` to bind a specific instrument interface. Production LAN deployments must use
+HTTPS, configured through normal ASP.NET Core Kestrel certificate settings; do not send the local
+administrator password over an untrusted plaintext network.
+
+Enrollment also creates a separate local API token. Customer software sends the token as
 `Authorization: Bearer TOKEN`.
 
 For an existing enrollment, retrieve or create its local token with the same data-directory
 environment used by the service:
 
 ```bash
-dotnet run --project src/FleetComb.Agent -- local-token
+dotnet run --project src/FleetComb.Agent.Api -- local-token
 ```
 
 Useful endpoints:

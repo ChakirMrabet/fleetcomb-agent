@@ -1,15 +1,17 @@
 using System.Text.Json;
+using FleetComb.Agent.Application.Abstractions;
+using FleetComb.Agent.Domain;
 
-namespace FleetComb.Agent;
+namespace FleetComb.Agent.Infrastructure.Persistence;
 
-public sealed class FileSoftwareStateStore : ISoftwareStateStore
+public sealed class FileSoftwareStateStore(IAgentRegistrationStore registrations)
+    : ISoftwareStateStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
     };
     private readonly SemaphoreSlim gate = new(1, 1);
-    private readonly string directory = AgentDataDirectory.Resolve();
 
     public Task<DesiredState?> LoadDesiredAsync(CancellationToken cancellationToken) =>
         ReadAsync<DesiredState>("desired-state.json", cancellationToken);
@@ -65,7 +67,7 @@ public sealed class FileSoftwareStateStore : ISoftwareStateStore
     private async Task<T?> ReadCoreAsync<T>(
         string fileName, CancellationToken cancellationToken)
     {
-        var path = Path.Combine(directory, fileName);
+        var path = Path.Combine(registrations.DataDirectory, fileName);
         if (!File.Exists(path)) return default;
         await using var stream = File.OpenRead(path);
         return await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, cancellationToken);
@@ -74,13 +76,12 @@ public sealed class FileSoftwareStateStore : ISoftwareStateStore
     private async Task WriteCoreAsync<T>(
         string fileName, T value, CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(directory);
-        var path = Path.Combine(directory, fileName);
+        Directory.CreateDirectory(registrations.DataDirectory);
+        var path = Path.Combine(registrations.DataDirectory, fileName);
         await using (var stream = new FileStream(
             path, FileMode.Create, FileAccess.Write, FileShare.None))
             await JsonSerializer.SerializeAsync(
                 stream, value, JsonOptions, cancellationToken);
-        if (!OperatingSystem.IsWindows())
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        FileAgentRegistrationStore.Secure(path);
     }
 }

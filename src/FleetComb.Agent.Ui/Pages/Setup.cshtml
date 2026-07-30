@@ -1,0 +1,19 @@
+@page
+@model SetupModel
+@{
+    ViewData["Title"] = "Secure Agent";
+}
+<section class="form-card">
+  <p class="eyebrow">Local administration</p>
+  <h1>Secure this Agent</h1>
+  <p>Create the password required to administer this instrument over its local network.</p>
+  <form method="post">
+    <div asp-validation-summary="ModelOnly" class="error"></div>
+    <label asp-for="Password">Local administrator password</label>
+    <input asp-for="Password" type="password" autocomplete="new-password" />
+    <span asp-validation-for="Password" class="error"></span>
+    <label asp-for="ConfirmPassword">Confirm password</label>
+    <input asp-for="ConfirmPassword" type="password" autocomplete="new-password" />
+    <button type="submit">Save Password</button>
+  </form>
+</section>

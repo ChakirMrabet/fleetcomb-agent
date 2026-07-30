@@ -1,0 +1,23 @@
+@page
+@model ResetModel
+@{
+    ViewData["Title"] = "Reset enrollment";
+}
+<section class="form-card">
+  <p class="eyebrow">Recovery</p>
+  <h1>Reset Agent enrollment</h1>
+  <p>
+    This disconnects the local Agent identity and returns this instrument to the enrollment
+    screen. FleetComb software assignments and Asset records are not deleted.
+  </p>
+  <p>
+    Local identity, inventory, update state, and administrator credentials are moved into a
+    timestamped backup inside the Agent data directory.
+  </p>
+  <form method="post">
+    <div asp-validation-summary="ModelOnly" class="error"></div>
+    <label asp-for="Confirmation">Type RESET to continue</label>
+    <input asp-for="Confirmation" autocomplete="off" />
+    <button class="danger" type="submit">Reset Enrollment</button>
+  </form>
+</section>

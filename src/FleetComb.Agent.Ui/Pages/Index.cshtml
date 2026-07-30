@@ -1,0 +1,68 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Status";
+}
+<section class="hero">
+  <p class="eyebrow">Instrument connection</p>
+  <h1>FleetComb Agent</h1>
+  <p>Local status, assigned software, and customer System Manager integration.</p>
+</section>
+
+<section class="grid">
+  <article>
+    <h2>Connection</h2>
+    <dl>
+      <div><dt>Asset</dt><dd>@Model.Registration?.AssetId</dd></div>
+      <div><dt>FleetComb</dt><dd>@Model.Registration?.ServerUrl</dd></div>
+      <div><dt>Installation</dt><dd>@Model.Registration?.InstallationId</dd></div>
+    </dl>
+  </article>
+  <article>
+    <h2>Product</h2>
+    @if (Model.Desired?.Product is { } product)
+    {
+      <strong>@product.Name</strong>
+      <p>@product.PartNumber</p>
+    }
+    else
+    {
+      <p>Waiting for FleetComb configuration.</p>
+    }
+  </article>
+  <article>
+    <h2>Current update</h2>
+    <strong>@Model.Update.State</strong>
+    <p>@Model.Update.Message</p>
+    <progress max="100" value="@Model.Update.ProgressPercent"></progress>
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Applications</h2>
+  @if (Model.Desired is null)
+  {
+    <p>Desired software has not synchronized yet.</p>
+  }
+  else
+  {
+    @foreach (var platform in Model.Desired.SoftwarePlatforms)
+    {
+      <h3>@platform.Name <small>@platform.PartNumber</small></h3>
+      <table>
+        <thead><tr><th>Application</th><th>Installed</th><th>Available</th></tr></thead>
+        <tbody>
+        @foreach (var application in platform.Applications)
+        {
+          var installed = Model.Inventory.FirstOrDefault(x => x.ApplicationId == application.Id);
+          <tr>
+            <td>@application.Name</td>
+            <td>@(installed?.InstalledVersion ?? "Not reported")</td>
+            <td>@(application.LatestRelease?.Version ?? "No matching release")</td>
+          </tr>
+        }
+        </tbody>
+      </table>
+    }
+  }
+</section>

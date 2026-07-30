@@ -1,4 +1,11 @@
 <Solution>
-  <Project Path="src/FleetComb.Agent/FleetComb.Agent.csproj" />
+  <Project Path="src/FleetComb.Agent.Domain/FleetComb.Agent.Domain.csproj" />
+  <Project Path="src/FleetComb.Agent.Application/FleetComb.Agent.Application.csproj" />
+  <Project Path="src/FleetComb.Agent.Infrastructure.Cloud/FleetComb.Agent.Infrastructure.Cloud.csproj" />
+  <Project Path="src/FleetComb.Agent.Infrastructure.Persistence/FleetComb.Agent.Infrastructure.Persistence.csproj" />
+  <Project Path="src/FleetComb.Agent.Infrastructure.Updates/FleetComb.Agent.Infrastructure.Updates.csproj" />
+  <Project Path="src/FleetComb.Agent.Ui/FleetComb.Agent.Ui.csproj" />
+  <Project Path="src/FleetComb.Agent.Api/FleetComb.Agent.Api.csproj" />
+  <Project Path="tests/FleetComb.Agent.ArchitectureTests/FleetComb.Agent.ArchitectureTests.csproj" />
   <Project Path="tools/FleetComb.SystemManagerSimulator/FleetComb.SystemManagerSimulator.csproj" />
 </Solution>

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>@ViewData["Title"] · FleetComb Agent</title>
+  <link rel="stylesheet" href="/agent-ui/agent.css" />
+</head>
+<body>
+  <header class="shell-header">
+    <a href="/" class="brand">FleetComb <span>Agent</span></a>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+      <nav>
+        <a href="/Reset">Reset enrollment</a>
+        <form method="post" action="/logout">
+          @Html.AntiForgeryToken()
+          <button class="quiet" type="submit">Sign out</button>
+        </form>
+      </nav>
+    }
+  </header>
+  <main>@RenderBody()</main>
+</body>
+</html>
