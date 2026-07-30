@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/FleetComb.Agent/FleetComb.Agent.csproj" />
+  <Project Path="tools/FleetComb.SystemManagerSimulator/FleetComb.SystemManagerSimulator.csproj" />
+</Solution>

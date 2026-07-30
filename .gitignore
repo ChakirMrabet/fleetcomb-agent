@@ -1,0 +1,33 @@
+# .NET build output
+**/bin/
+**/obj/
+artifacts/
+publish/
+
+# Local Agent identity, private keys, inventory, and downloaded updates
+agent-state/
+**/agent-state/
+
+# IDE and user-specific files
+.idea/
+.vscode/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Test and coverage output
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
