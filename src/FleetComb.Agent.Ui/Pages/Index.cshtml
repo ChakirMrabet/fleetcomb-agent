@@ -13,10 +13,12 @@
   <article>
     <h2>Connection</h2>
     <dl>
+      <div><dt>Status</dt><dd id="sync-state" data-state="@Model.Synchronization.State">@Model.Synchronization.State</dd></div>
       <div><dt>Asset</dt><dd>@Model.Registration?.AssetId</dd></div>
       <div><dt>FleetComb</dt><dd>@Model.Registration?.ServerUrl</dd></div>
-      <div><dt>Installation</dt><dd>@Model.Registration?.InstallationId</dd></div>
+      <div><dt>Last synchronized</dt><dd id="sync-last-success">@(Model.Synchronization.LastSuccessfulAt?.ToLocalTime().ToString("g") ?? "Never")</dd></div>
     </dl>
+    <p id="sync-error" class="error">@Model.Synchronization.LastError</p>
   </article>
   <article>
     <h2>Product</h2>
@@ -30,13 +32,23 @@
       <p>Waiting for FleetComb configuration.</p>
     }
   </article>
+  @if (!string.IsNullOrWhiteSpace(Model.Adapter.Name))
+  {
+    <article id="local-integration">
+      <h2>Local integration</h2>
+      <strong id="adapter-state" data-state="@Model.Adapter.State">@Model.Adapter.State</strong>
+      <p><span id="adapter-name">@Model.Adapter.Name</span> <span id="adapter-version">@Model.Adapter.Version</span></p>
+      <small id="adapter-last-seen">@(Model.Adapter.LastSeenAt?.ToLocalTime().ToString("g") ?? "Never connected")</small>
+    </article>
+  }
   <article>
     <h2>Current update</h2>
-    <strong>@Model.Update.State</strong>
-    <p>@Model.Update.Message</p>
-    <progress max="100" value="@Model.Update.ProgressPercent"></progress>
+    <strong id="update-state">@Model.Update.State</strong>
+    <p id="update-message">@Model.Update.Message</p>
+    <progress id="update-progress" max="100" value="@Model.Update.ProgressPercent"></progress>
   </article>
 </section>
+<script src="/agent-ui/status.js" defer></script>
 
 <section class="panel">
   <h2>Applications</h2>

@@ -49,6 +49,25 @@ public sealed class FileSoftwareStateStore(IAgentRegistrationStore registrations
     public Task SaveUpdateStatusAsync(UpdateStatus status, CancellationToken cancellationToken) =>
         WriteAsync("update-status.json", status, cancellationToken);
 
+    public async Task<SynchronizationStatus> LoadSynchronizationStatusAsync(
+        CancellationToken cancellationToken) =>
+        await ReadAsync<SynchronizationStatus>(
+            "synchronization-status.json", cancellationToken)
+        ?? SynchronizationStatus.NotEnrolled();
+
+    public Task SaveSynchronizationStatusAsync(
+        SynchronizationStatus status, CancellationToken cancellationToken) =>
+        WriteAsync("synchronization-status.json", status, cancellationToken);
+
+    public async Task<CustomerAdapterStatus> LoadAdapterStatusAsync(
+        CancellationToken cancellationToken) =>
+        await ReadAsync<CustomerAdapterStatus>("adapter-status.json", cancellationToken)
+        ?? CustomerAdapterStatus.NotConnected();
+
+    public Task SaveAdapterStatusAsync(
+        CustomerAdapterStatus status, CancellationToken cancellationToken) =>
+        WriteAsync("adapter-status.json", status, cancellationToken);
+
     private async Task<T?> ReadAsync<T>(string fileName, CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);

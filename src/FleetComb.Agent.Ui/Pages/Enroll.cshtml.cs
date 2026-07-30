@@ -1,7 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
-using FleetComb.Agent.Application;
-using FleetComb.Agent.Application.Abstractions;
+using FleetComb.Agent.Application.Authentication.Commands;
+using FleetComb.Agent.Application.Authentication.Queries;
+using FleetComb.Agent.Application.Enrollment.Commands;
+using FleetComb.Agent.Application.Enrollment.Queries;
+using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,24 +16,24 @@ namespace FleetComb.Agent.Ui.Pages;
 [AllowAnonymous]
 [EnableRateLimiting("setup")]
 public sealed class EnrollModel(
-    EnrollmentService enrollment,
-    IAgentRegistrationStore registrations,
-    ILocalAdministratorStore administrator) : PageModel
+    IMediator mediator) : PageModel
 {
     [BindProperty]
     public EnrollmentInput Input { get; set; } = new();
 
     public async Task<IActionResult> OnGet(CancellationToken cancellationToken)
     {
-        if (await registrations.LoadAsync(cancellationToken) is null) return Page();
-        return await administrator.IsConfiguredAsync(cancellationToken)
+        if (await mediator.Send(new GetRegistration.Query(), cancellationToken) is null)
+            return Page();
+        return await mediator.Send(
+            new IsAdministratorConfigured.Query(), cancellationToken)
             ? RedirectToPage("/Login")
             : RedirectToPage("/Setup");
     }
 
     public async Task<IActionResult> OnPost(CancellationToken cancellationToken)
     {
-        if (await registrations.LoadAsync(cancellationToken) is not null)
+        if (await mediator.Send(new GetRegistration.Query(), cancellationToken) is not null)
             return RedirectToPage("/Login");
         if (!ModelState.IsValid) return Page();
         if (!Uri.TryCreate(Input.ServerUrl, UriKind.Absolute, out var server))
@@ -45,10 +48,11 @@ public sealed class EnrollModel(
         }
         try
         {
-            await enrollment.EnrollAsync(
-                server, Input.EnrollmentCode, cancellationToken);
-            await administrator.SetPasswordAsync(
-                Input.AdministratorPassword, cancellationToken);
+            await mediator.Send(
+                new EnrollAgent.Command(server, Input.EnrollmentCode), cancellationToken);
+            await mediator.Send(
+                new SetAdministratorPassword.Command(Input.AdministratorPassword),
+                cancellationToken);
             await SignIn();
             return RedirectToPage("/Index");
         }

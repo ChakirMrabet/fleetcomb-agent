@@ -47,3 +47,25 @@ public sealed record UpdateStatus(
     public static UpdateStatus Idle() =>
         new(null, null, "Idle", 0, "No update is running.", DateTimeOffset.UtcNow);
 }
+
+public sealed record SynchronizationStatus(
+    string State,
+    DateTimeOffset? LastAttemptAt,
+    DateTimeOffset? LastSuccessfulAt,
+    DateTimeOffset? NextRetryAt,
+    string LastError)
+{
+    public static SynchronizationStatus NotEnrolled() =>
+        new("NotEnrolled", null, null, null, "");
+}
+
+public sealed record CustomerAdapterStatus(
+    string State,
+    string Name,
+    string Version,
+    IReadOnlyList<string> Capabilities,
+    DateTimeOffset? LastSeenAt)
+{
+    public static CustomerAdapterStatus NotConnected() =>
+        new("NotConnected", "", "", [], null);
+}

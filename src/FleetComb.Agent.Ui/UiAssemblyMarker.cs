@@ -5,6 +5,8 @@ public sealed class UiAssemblyMarker;
 public static class UiAssets
 {
     public static string Css { get; } = Read("FleetComb.Agent.Ui.agent.css");
+    public static string StatusJavaScript { get; } =
+        Read("FleetComb.Agent.Ui.status.js");
 
     private static string Read(string name)
     {

@@ -11,6 +11,8 @@ public sealed class FileAgentDataReset(IAgentRegistrationStore registrations)
         "desired-state.json",
         "software-inventory.json",
         "update-status.json",
+        "synchronization-status.json",
+        "adapter-status.json",
         "local-administrator.json"
     ];
 

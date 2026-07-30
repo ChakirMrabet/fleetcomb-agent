@@ -11,5 +11,7 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <EmbeddedResource Include="wwwroot/agent-ui/agent.css"
                       LogicalName="FleetComb.Agent.Ui.agent.css" />
+    <EmbeddedResource Include="wwwroot/agent-ui/status.js"
+                      LogicalName="FleetComb.Agent.Ui.status.js" />
   </ItemGroup>
 </Project>

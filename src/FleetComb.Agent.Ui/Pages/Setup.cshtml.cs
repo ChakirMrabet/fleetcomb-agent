@@ -1,6 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
-using FleetComb.Agent.Application.Abstractions;
+using FleetComb.Agent.Application.Authentication.Commands;
+using FleetComb.Agent.Application.Authentication.Queries;
+using FleetComb.Agent.Application.Enrollment.Queries;
+using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,9 +14,7 @@ namespace FleetComb.Agent.Ui.Pages;
 
 [AllowAnonymous]
 [EnableRateLimiting("setup")]
-public sealed class SetupModel(
-    IAgentRegistrationStore registrations,
-    ILocalAdministratorStore administrator) : PageModel
+public sealed class SetupModel(IMediator mediator) : PageModel
 {
     [BindProperty, Required, MinLength(12)]
     public string Password { get; set; } = "";
@@ -22,23 +23,26 @@ public sealed class SetupModel(
 
     public async Task<IActionResult> OnGet(CancellationToken cancellationToken)
     {
-        if (await registrations.LoadAsync(cancellationToken) is null)
+        if (await mediator.Send(new GetRegistration.Query(), cancellationToken) is null)
             return RedirectToPage("/Enroll");
-        return await administrator.IsConfiguredAsync(cancellationToken)
+        return await mediator.Send(
+            new IsAdministratorConfigured.Query(), cancellationToken)
             ? RedirectToPage("/Login")
             : Page();
     }
 
     public async Task<IActionResult> OnPost(CancellationToken cancellationToken)
     {
-        if (await registrations.LoadAsync(cancellationToken) is null)
+        if (await mediator.Send(new GetRegistration.Query(), cancellationToken) is null)
             return RedirectToPage("/Enroll");
-        if (await administrator.IsConfiguredAsync(cancellationToken))
+        if (await mediator.Send(
+                new IsAdministratorConfigured.Query(), cancellationToken))
             return RedirectToPage("/Login");
         if (Password != ConfirmPassword)
             ModelState.AddModelError(nameof(ConfirmPassword), "The passwords do not match.");
         if (!ModelState.IsValid) return Page();
-        await administrator.SetPasswordAsync(Password, cancellationToken);
+        await mediator.Send(
+            new SetAdministratorPassword.Command(Password), cancellationToken);
         await HttpContext.SignInAsync(
             "AgentUi",
             new ClaimsPrincipal(new ClaimsIdentity(

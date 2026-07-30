@@ -62,6 +62,9 @@ th, td { padding: .75rem; border-bottom: 1px solid var(--border); text-align: le
 small { color: var(--muted); font-weight: 400; }
 progress { width: 100%; accent-color: var(--accent); }
 .error { color: #b42318; }
+[data-state='Online'], [data-state='Connected'], [data-state='Completed'] { color: #16803c; }
+[data-state='Offline'], [data-state='AuthenticationFailed'], [data-state='Failed'] { color: #b42318; }
+[data-state='Downloading'], [data-state='Installing'], [data-state='AwaitingAdapter'] { color: #b05d00; }
 @media (prefers-color-scheme: dark) {
   :root { --surface: #252320; --canvas: #191816; --text: #f4f0ea; --muted: #b8b1a8; --border: #45413c; }
 }
