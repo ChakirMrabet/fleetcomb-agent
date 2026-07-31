@@ -1,5 +1,6 @@
 using FleetComb.Agent.Api;
 using FleetComb.Agent.Api.Authentication;
+using FleetComb.Agent.Api.Realtime;
 using FleetComb.Agent.Application;
 using FleetComb.Agent.Infrastructure.Cloud;
 using FleetComb.Agent.Infrastructure.Persistence;
@@ -43,4 +44,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapRazorPages();
+app.MapHub<AgentStatusHub>(AgentStatusHub.Route);
 await app.RunAsync();

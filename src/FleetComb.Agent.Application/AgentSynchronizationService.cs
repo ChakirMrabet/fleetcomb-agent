@@ -8,7 +8,8 @@ namespace FleetComb.Agent.Application;
 public sealed class AgentSynchronizationService(
     IAgentRegistrationStore registrations,
     ISoftwareStateStore software,
-    IAgentCloudClient cloud)
+    IAgentCloudClient cloud,
+    IAgentStatusNotifier notifier)
 {
     public async Task RunAsync(
         Func<HeartbeatResult, Task>? synchronized,
@@ -29,6 +30,9 @@ public sealed class AgentSynchronizationService(
             var attemptedAt = DateTimeOffset.UtcNow;
             try
             {
+                var previousDesired = await software.LoadDesiredAsync(cancellationToken);
+                var previousStatus =
+                    await software.LoadSynchronizationStatusAsync(cancellationToken);
                 var inventory = await software.LoadInventoryAsync(cancellationToken);
                 var response = await cloud.HeartbeatAsync(
                     registration, (long)started.Elapsed.TotalSeconds, inventory,
@@ -41,6 +45,11 @@ public sealed class AgentSynchronizationService(
                         "Online", attemptedAt, DateTimeOffset.UtcNow,
                         DateTimeOffset.UtcNow.Add(delay), ""),
                     cancellationToken);
+                var desiredChanged = DesiredChanged(previousDesired, response.DesiredState);
+                if (desiredChanged || previousStatus.State != "Online")
+                    await notifier.NotifyAsync(
+                        desiredChanged ? "desired-state" : "synchronization",
+                        cancellationToken);
                 if (synchronized is not null) await synchronized(response);
             }
             catch (HttpRequestException exception)
@@ -56,7 +65,19 @@ public sealed class AgentSynchronizationService(
                         state, attemptedAt, previous.LastSuccessfulAt,
                         DateTimeOffset.UtcNow.Add(delay), exception.Message),
                     cancellationToken);
+                if (previous.State != state)
+                    await notifier.NotifyAsync("synchronization", cancellationToken);
             }
         }
     }
+
+    private static bool DesiredChanged(DesiredState? previous, DesiredState current) =>
+        previous is null ||
+        previous.Revision != current.Revision ||
+        previous.Product?.Id != current.Product?.Id ||
+        !string.Equals(
+            previous.Product?.PartNumber,
+            current.Product?.PartNumber,
+            StringComparison.Ordinal) ||
+        !string.Equals(previous.Product?.Name, current.Product?.Name, StringComparison.Ordinal);
 }

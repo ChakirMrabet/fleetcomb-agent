@@ -16,4 +16,8 @@ public sealed class UiAssetsController : ControllerBase
     [HttpGet("status.js")]
     public ContentResult StatusJavaScript() =>
         Content(UiAssets.StatusJavaScript, "text/javascript; charset=utf-8");
+
+    [HttpGet("signalr.min.js")]
+    public ContentResult SignalRJavaScript() =>
+        Content(UiAssets.SignalRJavaScript, "text/javascript; charset=utf-8");
 }

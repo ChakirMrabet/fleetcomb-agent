@@ -7,6 +7,8 @@ public static class UiAssets
     public static string Css { get; } = Read("FleetComb.Agent.Ui.agent.css");
     public static string StatusJavaScript { get; } =
         Read("FleetComb.Agent.Ui.status.js");
+    public static string SignalRJavaScript { get; } =
+        Read("FleetComb.Agent.Ui.signalr.min.js");
 
     private static string Read(string name)
     {

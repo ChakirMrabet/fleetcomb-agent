@@ -9,6 +9,7 @@ public sealed class UpdateService(
     ISoftwareStateStore software,
     IAgentCloudClient cloud,
     IEnumerable<IReleaseInstaller> installers,
+    IAgentStatusNotifier notifier,
     ILogger<UpdateService> logger)
 {
     private readonly SemaphoreSlim gate = new(1, 1);
@@ -108,6 +109,7 @@ public sealed class UpdateService(
         var status = new UpdateStatus(
             applicationId, releaseId, state, progress, message, DateTimeOffset.UtcNow);
         await software.SaveUpdateStatusAsync(status, cancellationToken);
+        await notifier.NotifyAsync("update", cancellationToken);
         return status;
     }
 

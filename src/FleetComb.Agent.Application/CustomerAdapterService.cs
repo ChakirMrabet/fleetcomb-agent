@@ -3,7 +3,9 @@ using FleetComb.Agent.Domain;
 
 namespace FleetComb.Agent.Application;
 
-public sealed class CustomerAdapterService(ISoftwareStateStore software)
+public sealed class CustomerAdapterService(
+    ISoftwareStateStore software,
+    IAgentStatusNotifier notifier)
 {
     private static readonly TimeSpan OfflineAfter = TimeSpan.FromSeconds(15);
 
@@ -33,6 +35,7 @@ public sealed class CustomerAdapterService(ISoftwareStateStore software)
                 .ToArray(),
             DateTimeOffset.UtcNow);
         await software.SaveAdapterStatusAsync(status, token);
+        await notifier.NotifyAsync("local-integration", token);
         return status;
     }
 
@@ -47,6 +50,8 @@ public sealed class CustomerAdapterService(ISoftwareStateStore software)
             LastSeenAt = DateTimeOffset.UtcNow
         };
         await software.SaveAdapterStatusAsync(updated, token);
+        if (Normalize(current, DateTimeOffset.UtcNow).State == "Offline")
+            await notifier.NotifyAsync("local-integration", token);
         return updated;
     }
 

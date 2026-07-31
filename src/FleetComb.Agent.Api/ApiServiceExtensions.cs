@@ -1,4 +1,6 @@
 using FleetComb.Agent.Api.Authentication;
+using FleetComb.Agent.Api.Realtime;
+using FleetComb.Agent.Application.Abstractions;
 using Microsoft.AspNetCore.Authentication;
 
 namespace FleetComb.Agent.Api;
@@ -31,6 +33,8 @@ public static class ApiServiceExtensions
         services.AddAuthorization();
         services.AddAntiforgery();
         services.AddControllers();
+        services.AddSignalR();
+        services.AddSingleton<IAgentStatusNotifier, SignalRAgentStatusNotifier>();
         services.AddHostedService<SynchronizationWorker>();
         return services;
     }

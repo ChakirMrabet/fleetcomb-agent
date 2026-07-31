@@ -39,4 +39,22 @@ async function refresh() {
 }
 
 refresh();
-window.setInterval(refresh, 2000);
+
+const connection = new signalR.HubConnectionBuilder()
+  .withUrl("/hubs/status")
+  .withAutomaticReconnect()
+  .build();
+
+connection.on("StatusChanged", change => {
+  if (change === "desired-state") {
+    window.location.reload();
+    return;
+  }
+  refresh();
+});
+
+connection.start().catch(() => {
+  state("sync-state", "UI disconnected");
+});
+
+window.setInterval(refresh, 30000);

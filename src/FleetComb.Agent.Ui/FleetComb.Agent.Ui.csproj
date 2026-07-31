@@ -13,5 +13,7 @@
                       LogicalName="FleetComb.Agent.Ui.agent.css" />
     <EmbeddedResource Include="wwwroot/agent-ui/status.js"
                       LogicalName="FleetComb.Agent.Ui.status.js" />
+    <EmbeddedResource Include="wwwroot/agent-ui/signalr.min.js"
+                      LogicalName="FleetComb.Agent.Ui.signalr.min.js" />
   </ItemGroup>
 </Project>
