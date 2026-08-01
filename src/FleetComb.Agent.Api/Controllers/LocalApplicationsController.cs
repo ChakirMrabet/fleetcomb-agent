@@ -14,6 +14,7 @@ namespace FleetComb.Agent.Api.Controllers;
 public sealed class LocalApplicationsController(IMediator mediator) : ControllerBase
 {
     [HttpGet("desired-state")]
+    [Authorize(Policy = "local:configuration.read")]
     public async Task<IActionResult> DesiredState(CancellationToken token)
     {
         var desired = await mediator.Send(new GetDesiredState.Query(), token);
@@ -21,10 +22,12 @@ public sealed class LocalApplicationsController(IMediator mediator) : Controller
     }
 
     [HttpGet("applications")]
+    [Authorize(Policy = "local:inventory.read")]
     public async Task<IActionResult> List(CancellationToken token) =>
         Ok(await mediator.Send(new GetInstalledApplications.Query(), token));
 
     [HttpPost("applications/report")]
+    [Authorize(Policy = "local:inventory.write")]
     public async Task<IActionResult> Report(
         ReportApplicationRequest request,
         CancellationToken token)

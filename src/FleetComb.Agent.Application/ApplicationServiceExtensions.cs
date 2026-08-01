@@ -18,6 +18,7 @@ public static class ApplicationServiceExtensions
             .AddSingleton<UpdateService>()
             .AddSingleton<AgentResetService>()
             .AddSingleton<CustomerAdapterService>()
+            .AddSingleton<ProducerMessageService>()
             .AddSingleton<AgentStatusService>();
     }
 }

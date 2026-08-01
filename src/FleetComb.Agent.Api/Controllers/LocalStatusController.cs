@@ -12,6 +12,7 @@ namespace FleetComb.Agent.Api.Controllers;
 public sealed class LocalStatusController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = "local:status.read")]
     public async Task<IActionResult> Get(CancellationToken token) =>
         Ok(await mediator.Send(new GetLocalAgentStatus.Query(), token));
 }

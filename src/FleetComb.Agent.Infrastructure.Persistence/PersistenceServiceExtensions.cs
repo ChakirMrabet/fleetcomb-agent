@@ -9,6 +9,8 @@ public static class PersistenceServiceExtensions
         services
             .AddSingleton<IAgentRegistrationStore, FileAgentRegistrationStore>()
             .AddSingleton<ILocalAdministratorStore, FileLocalAdministratorStore>()
+            .AddSingleton<ILocalAdapterStore, FileLocalAdapterStore>()
+            .AddSingleton<IProducerMessageStore, FileProducerMessageStore>()
             .AddSingleton<IAgentDataReset, FileAgentDataReset>()
             .AddSingleton<ISoftwareStateStore, FileSoftwareStateStore>();
 }

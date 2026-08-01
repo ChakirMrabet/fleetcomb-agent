@@ -1,6 +1,7 @@
 using FleetComb.Agent.Api.Authentication;
 using FleetComb.Agent.Api.Realtime;
 using FleetComb.Agent.Application.Abstractions;
+using FleetComb.Agent.Application.Adapters;
 using Microsoft.AspNetCore.Authentication;
 
 namespace FleetComb.Agent.Api;
@@ -30,7 +31,18 @@ public static class ApiServiceExtensions
             })
             .AddScheme<AuthenticationSchemeOptions, LocalApiAuthenticationHandler>(
                 AuthenticationSchemes.LocalApi, _ => { });
-        services.AddAuthorization();
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy("local:bootstrap", policy => policy
+                .AddAuthenticationSchemes(AuthenticationSchemes.LocalApi)
+                .RequireAuthenticatedUser()
+                .RequireClaim("credential_type", "bootstrap"));
+            foreach (var scope in LocalAdapterScopes.All)
+                options.AddPolicy($"local:{scope}", policy => policy
+                    .AddAuthenticationSchemes(AuthenticationSchemes.LocalApi)
+                    .RequireAuthenticatedUser()
+                    .RequireClaim("scope", scope));
+        });
         services.AddAntiforgery();
         services.AddControllers();
         services.AddSignalR();

@@ -22,12 +22,20 @@ builder.Services
     .AddRazorPages()
     .AddApplicationPart(typeof(UiAssemblyMarker).Assembly);
 builder.Services.AddRateLimiter(options =>
+{
     options.AddFixedWindowLimiter("setup", limiter =>
     {
         limiter.PermitLimit = 10;
         limiter.Window = TimeSpan.FromMinutes(1);
         limiter.QueueLimit = 0;
-    }));
+    });
+    options.AddFixedWindowLimiter("local-api", limiter =>
+    {
+        limiter.PermitLimit = 300;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueLimit = 0;
+    });
+});
 
 var configuredUrls = builder.Configuration["AgentWeb:Urls"];
 builder.WebHost.UseUrls(string.IsNullOrWhiteSpace(configuredUrls)
@@ -42,7 +50,7 @@ app.UseStaticFiles();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers();
+app.MapControllers().RequireRateLimiting("local-api");
 app.MapRazorPages();
 app.MapHub<AgentStatusHub>(AgentStatusHub.Route);
 await app.RunAsync();

@@ -12,6 +12,9 @@ public interface ISoftwareStateStore
         ApplicationObservation observation, CancellationToken cancellationToken);
     Task<UpdateStatus> LoadUpdateStatusAsync(CancellationToken cancellationToken);
     Task SaveUpdateStatusAsync(UpdateStatus status, CancellationToken cancellationToken);
+    Task<IReadOnlyList<UpdateAttempt>> LoadUpdateAttemptsAsync(
+        CancellationToken cancellationToken);
+    Task SaveUpdateAttemptAsync(UpdateAttempt attempt, CancellationToken cancellationToken);
     Task<SynchronizationStatus> LoadSynchronizationStatusAsync(
         CancellationToken cancellationToken);
     Task SaveSynchronizationStatusAsync(

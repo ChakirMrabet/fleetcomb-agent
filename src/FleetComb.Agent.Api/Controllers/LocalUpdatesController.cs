@@ -14,16 +14,24 @@ public sealed class LocalUpdatesController(
     IMediator mediator) : ControllerBase
 {
     [HttpGet("updates/current")]
+    [Authorize(Policy = "local:updates.read")]
     public async Task<IActionResult> Current(CancellationToken token) =>
         Ok(await mediator.Send(new GetCurrentUpdate.Query(), token));
 
+    [HttpGet("updates/history")]
+    [Authorize(Policy = "local:updates.read")]
+    public async Task<IActionResult> History(CancellationToken token) =>
+        Ok(await mediator.Send(new GetUpdateHistory.Query(), token));
+
     [HttpPost("applications/{applicationId:guid}/install")]
+    [Authorize(Policy = "local:updates.install")]
     public async Task<IActionResult> Install(
         Guid applicationId,
         CancellationToken token) =>
         Ok(await mediator.Send(new StartApplicationUpdate.Command(applicationId), token));
 
     [HttpPost("applications/{applicationId:guid}/install-completion")]
+    [Authorize(Policy = "local:updates.install")]
     public async Task<IActionResult> Complete(
         Guid applicationId,
         AdapterInstallCompletionRequest request,

@@ -6,7 +6,7 @@
 <section class="hero">
   <p class="eyebrow">Instrument connection</p>
   <h1>FleetComb Agent</h1>
-  <p>Local status, assigned software, and customer System Manager integration.</p>
+  <p>Local status, assigned software, updates, and optional customer integration.</p>
 </section>
 
 <section class="grid">
@@ -63,15 +63,34 @@
     {
       <h3>@platform.Name <small>@platform.PartNumber</small></h3>
       <table>
-        <thead><tr><th>Application</th><th>Installed</th><th>Available</th></tr></thead>
+        <thead><tr><th>Application</th><th>Installed</th><th>Available</th><th>Action</th></tr></thead>
         <tbody>
         @foreach (var application in platform.Applications)
         {
           var installed = Model.Inventory.FirstOrDefault(x => x.ApplicationId == application.Id);
+          var release = application.LatestRelease;
+          var updateAvailable = release is not null && !string.Equals(
+            installed?.InstalledVersion, release.Version, StringComparison.OrdinalIgnoreCase);
+          var applicationDomId = application.Id.ToString("N");
           <tr>
             <td>@application.Name</td>
-            <td>@(installed?.InstalledVersion ?? "Not reported")</td>
-            <td>@(application.LatestRelease?.Version ?? "No matching release")</td>
+            <td id="installed-@applicationDomId">@(installed?.InstalledVersion ?? "Not reported")</td>
+            <td>@(release?.Version ?? "No matching release")</td>
+            <td>
+              @if (updateAvailable)
+              {
+                <form method="post" asp-page-handler="Install" class="update-form"
+                      data-update-form data-application-id="@application.Id"
+                      data-available-version="@release!.Version">
+                  <input type="hidden" name="applicationId" value="@application.Id" />
+                  <button type="submit">@(installed is null ? "Install" : "Update")</button>
+                </form>
+              }
+              else if (release is not null)
+              {
+                <span>Up to date</span>
+              }
+            </td>
           </tr>
         }
         </tbody>

@@ -10,6 +10,7 @@ public interface IAgentCloudClient
     Task<HeartbeatResult> HeartbeatAsync(
         AgentRegistration registration, long uptimeSeconds,
         IReadOnlyList<ApplicationObservation> applications,
+        IReadOnlyList<ProducerMessage> producerMessages,
         CancellationToken cancellationToken);
     Task DownloadReleaseAsync(
         AgentRegistration registration, DesiredRelease release, string destination,
@@ -26,4 +27,5 @@ public sealed record EnrollmentClaim(
 public sealed record HeartbeatResult(
     DateTimeOffset ServerTime,
     int NextHeartbeatSeconds,
-    DesiredState DesiredState);
+    DesiredState DesiredState,
+    IReadOnlyList<Guid> AcceptedProducerMessageIds);

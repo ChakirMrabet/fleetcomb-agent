@@ -34,11 +34,17 @@ public sealed class AgentCloudClient(HttpClient httpClient) : IAgentCloudClient
     public async Task<HeartbeatResult> HeartbeatAsync(
         AgentRegistration state, long uptimeSeconds,
         IReadOnlyList<ApplicationObservation> applications,
+        IReadOnlyList<ProducerMessage> producerMessages,
         CancellationToken cancellationToken)
     {
         var body = JsonSerializer.SerializeToUtf8Bytes(
             new HeartbeatRequest(
-                AgentVersion.Current, "1.0", uptimeSeconds, "Healthy", applications),
+                AgentVersion.Current, "1.0", uptimeSeconds, "Healthy", applications,
+                producerMessages.Select(message => new ProducerMessageRequest(
+                    message.Id, message.AdapterId, message.Sequence, message.Kind,
+                    message.Schema, message.Severity,
+                    JsonDocument.Parse(message.PayloadJson).RootElement.Clone(),
+                    message.CreatedAt)).ToArray()),
             JsonOptions);
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var nonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
@@ -64,7 +70,8 @@ public sealed class AgentCloudClient(HttpClient httpClient) : IAgentCloudClient
             JsonOptions, cancellationToken)
             ?? throw new InvalidOperationException("FleetComb returned an empty heartbeat response.");
         return new HeartbeatResult(
-            heartbeat.ServerTime, heartbeat.NextHeartbeatSeconds, heartbeat.DesiredState);
+            heartbeat.ServerTime, heartbeat.NextHeartbeatSeconds, heartbeat.DesiredState,
+            heartbeat.AcceptedProducerMessageIds ?? []);
     }
 
     public async Task DownloadReleaseAsync(
@@ -145,10 +152,15 @@ public sealed class AgentCloudClient(HttpClient httpClient) : IAgentCloudClient
         int HeartbeatIntervalSeconds, DateTimeOffset ServerTime);
     private sealed record HeartbeatRequest(
         string AgentVersion, string ProtocolVersion, long UptimeSeconds, string Health,
-        IReadOnlyList<ApplicationObservation> Applications);
+        IReadOnlyList<ApplicationObservation> Applications,
+        IReadOnlyList<ProducerMessageRequest> ProducerMessages);
+    private sealed record ProducerMessageRequest(
+        Guid Id, Guid AdapterId, long Sequence, string Kind, string Schema,
+        string Severity, JsonElement Payload, DateTimeOffset CreatedAt);
     private sealed record ArtifactRequest(Guid SoftwareReleaseId);
     public sealed record HeartbeatResponse(
-        DateTimeOffset ServerTime, int NextHeartbeatSeconds, DesiredState DesiredState);
+        DateTimeOffset ServerTime, int NextHeartbeatSeconds, DesiredState DesiredState,
+        IReadOnlyList<Guid>? AcceptedProducerMessageIds);
 }
 
 public static class AgentVersion

@@ -8,6 +8,7 @@ namespace FleetComb.Agent.Application;
 public sealed class AgentSynchronizationService(
     IAgentRegistrationStore registrations,
     ISoftwareStateStore software,
+    IProducerMessageStore producerMessages,
     IAgentCloudClient cloud,
     IAgentStatusNotifier notifier)
 {
@@ -34,9 +35,15 @@ public sealed class AgentSynchronizationService(
                 var previousStatus =
                     await software.LoadSynchronizationStatusAsync(cancellationToken);
                 var inventory = await software.LoadInventoryAsync(cancellationToken);
+                var outbound = await producerMessages.LoadPendingAsync(100, cancellationToken);
                 var response = await cloud.HeartbeatAsync(
                     registration, (long)started.Elapsed.TotalSeconds, inventory,
+                    outbound,
                     cancellationToken);
+                if (response.AcceptedProducerMessageIds.Count > 0)
+                    await producerMessages.MarkDeliveredAsync(
+                        response.AcceptedProducerMessageIds, DateTimeOffset.UtcNow,
+                        cancellationToken);
                 await software.SaveDesiredAsync(response.DesiredState, cancellationToken);
                 delay = TimeSpan.FromSeconds(Math.Clamp(
                     response.NextHeartbeatSeconds, 15, 3600));

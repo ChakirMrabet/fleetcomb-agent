@@ -1,4 +1,5 @@
 using FleetComb.Agent.Application.Synchronization.Commands;
+using FleetComb.Agent.Application.Updates.Commands;
 using MediatR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -10,6 +11,7 @@ public sealed class SynchronizationWorker(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await mediator.Send(new RecoverInterruptedUpdate.Command(), stoppingToken);
         while (!stoppingToken.IsCancellationRequested)
         {
             await mediator.Send(new RunSynchronization.Command(), stoppingToken);

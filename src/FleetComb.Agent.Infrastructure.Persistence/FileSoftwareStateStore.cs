@@ -49,6 +49,29 @@ public sealed class FileSoftwareStateStore(IAgentRegistrationStore registrations
     public Task SaveUpdateStatusAsync(UpdateStatus status, CancellationToken cancellationToken) =>
         WriteAsync("update-status.json", status, cancellationToken);
 
+    public async Task<IReadOnlyList<UpdateAttempt>> LoadUpdateAttemptsAsync(
+        CancellationToken cancellationToken) =>
+        await ReadAsync<UpdateAttempt[]>("update-attempts.json", cancellationToken) ?? [];
+
+    public async Task SaveUpdateAttemptAsync(
+        UpdateAttempt attempt, CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            var attempts = await ReadCoreAsync<UpdateAttempt[]>(
+                "update-attempts.json", cancellationToken) ?? [];
+            var updated = attempts
+                .Where(item => item.Id != attempt.Id)
+                .Append(attempt)
+                .OrderByDescending(item => item.StartedAt)
+                .Take(100)
+                .ToArray();
+            await WriteCoreAsync("update-attempts.json", updated, cancellationToken);
+        }
+        finally { gate.Release(); }
+    }
+
     public async Task<SynchronizationStatus> LoadSynchronizationStatusAsync(
         CancellationToken cancellationToken) =>
         await ReadAsync<SynchronizationStatus>(

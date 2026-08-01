@@ -27,7 +27,8 @@ Console.CancelKeyPress += (_, eventArgs) =>
     stopping.Cancel();
 };
 
-await RegisterAsync(client, stopping.Token);
+var adapterToken = await RegisterAsync(client, stopping.Token);
+client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adapterToken);
 var heartbeat = SendHeartbeatsAsync(client, stopping.Token);
 
 try
@@ -70,7 +71,7 @@ finally
     catch (OperationCanceledException) { }
 }
 
-static async Task RegisterAsync(HttpClient client, CancellationToken token)
+static async Task<string> RegisterAsync(HttpClient client, CancellationToken token)
 {
     using var response = await client.PostAsJsonAsync(
         "/local/v1/adapter/register",
@@ -83,11 +84,20 @@ static async Task RegisterAsync(HttpClient client, CancellationToken token)
                 "application-inventory",
                 "adapter-installation",
                 "update-progress"
+            },
+            scopes = new[]
+            {
+                "status.read", "configuration.read", "inventory.read", "inventory.write",
+                "updates.read", "updates.install", "telemetry.write", "events.subscribe"
             }
         },
         token);
     await EnsureSuccessAsync(response, "register the simulator", token);
-    Console.WriteLine("System Manager simulator connected.");
+    var registration = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
+    var adapterToken = registration.RootElement.GetProperty("token").GetString()
+        ?? throw new InvalidOperationException("The Agent did not return an adapter token.");
+    Console.WriteLine("System Manager simulator registered with a scoped credential.");
+    return adapterToken;
 }
 
 static async Task SendHeartbeatsAsync(HttpClient client, CancellationToken token)

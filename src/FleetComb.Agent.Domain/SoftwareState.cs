@@ -37,6 +37,7 @@ public sealed record ApplicationObservation(
     DateTimeOffset ObservedAt);
 
 public sealed record UpdateStatus(
+    Guid AttemptId,
     Guid? ApplicationId,
     Guid? SoftwareReleaseId,
     string State,
@@ -45,8 +46,19 @@ public sealed record UpdateStatus(
     DateTimeOffset UpdatedAt)
 {
     public static UpdateStatus Idle() =>
-        new(null, null, "Idle", 0, "No update is running.", DateTimeOffset.UtcNow);
+        new(Guid.Empty, null, null, "Idle", 0, "No update is running.", DateTimeOffset.UtcNow);
 }
+
+public sealed record UpdateAttempt(
+    Guid Id,
+    Guid ApplicationId,
+    Guid SoftwareReleaseId,
+    string State,
+    int ProgressPercent,
+    string Message,
+    DateTimeOffset StartedAt,
+    DateTimeOffset UpdatedAt,
+    DateTimeOffset? CompletedAt);
 
 public sealed record SynchronizationStatus(
     string State,

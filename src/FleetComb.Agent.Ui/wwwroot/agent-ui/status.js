@@ -13,6 +13,30 @@ const state = (id, value) => {
 const localTime = value =>
   value ? new Date(value).toLocaleString() : "Never";
 
+const activeUpdateStates = new Set([
+  "Downloading", "Verified", "Installing", "AwaitingAdapter"
+]);
+
+const setUpdateControls = update => {
+  const active = activeUpdateStates.has(update.state);
+  document.querySelectorAll("[data-update-form] button").forEach(button => {
+    button.disabled = active;
+  });
+};
+
+const updateInventory = applications => {
+  for (const application of applications ?? []) {
+    const id = application.applicationId.replaceAll("-", "");
+    text(`installed-${id}`, application.installedVersion);
+    const form = document.querySelector(
+      `[data-update-form][data-application-id="${application.applicationId}"]`);
+    if (form && form.dataset.availableVersion.toLowerCase() ===
+        application.installedVersion.toLowerCase()) {
+      form.replaceWith("Up to date");
+    }
+  }
+};
+
 async function refresh() {
   try {
     const response = await fetch("/ui/v1/status", {
@@ -33,6 +57,8 @@ async function refresh() {
     text("update-message", value.update.message);
     const progress = document.getElementById("update-progress");
     if (progress) progress.value = value.update.progressPercent;
+    setUpdateControls(value.update);
+    updateInventory(value.installedApplications);
   } catch {
     state("sync-state", "UI disconnected");
   }
@@ -58,3 +84,27 @@ connection.start().catch(() => {
 });
 
 window.setInterval(refresh, 30000);
+
+document.querySelectorAll("[data-update-form]").forEach(form => {
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = form.querySelector("button");
+    button.disabled = true;
+    text("update-message", "Starting update...");
+    try {
+      const response = await fetch(form.action, {
+        method: "POST",
+        credentials: "same-origin",
+        body: new FormData(form),
+        headers: { Accept: "application/json" }
+      });
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.message ?? result.title ?? "Update failed.");
+      await refresh();
+    } catch (error) {
+      text("update-message", error.message);
+      button.disabled = false;
+    }
+  });
+});

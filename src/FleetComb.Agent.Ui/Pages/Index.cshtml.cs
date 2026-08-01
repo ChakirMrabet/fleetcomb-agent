@@ -1,8 +1,11 @@
 using FleetComb.Agent.Application;
 using FleetComb.Agent.Application.Status.Queries;
+using FleetComb.Agent.Application.Updates.Commands;
 using FleetComb.Agent.Domain;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace FleetComb.Agent.Ui.Pages;
@@ -29,5 +32,19 @@ public sealed class IndexModel(IMediator mediator) : PageModel
         Update = status.Update;
         Synchronization = status.Synchronization;
         Adapter = status.Adapter;
+    }
+
+    public async Task<IActionResult> OnPostInstall(
+        Guid applicationId,
+        CancellationToken cancellationToken)
+    {
+        var status = await mediator.Send(
+            new StartApplicationUpdate.Command(applicationId), cancellationToken);
+        return new JsonResult(status)
+        {
+            StatusCode = status.State == "Failed"
+                ? StatusCodes.Status422UnprocessableEntity
+                : StatusCodes.Status200OK
+        };
     }
 }
