@@ -11,6 +11,8 @@ public static class PersistenceServiceExtensions
             .AddSingleton<ILocalAdministratorStore, FileLocalAdministratorStore>()
             .AddSingleton<ILocalAdapterStore, FileLocalAdapterStore>()
             .AddSingleton<IProducerMessageStore, FileProducerMessageStore>()
+            .AddSingleton<IFileUploadStore, FileUploadStore>()
+            .AddSingleton<ILocalUploadFileProvider, LocalUploadFileProvider>()
             .AddSingleton<IAgentDataReset, FileAgentDataReset>()
             .AddSingleton<ISoftwareStateStore, FileSoftwareStateStore>();
 }

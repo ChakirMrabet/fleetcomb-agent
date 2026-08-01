@@ -7,6 +7,7 @@ var baseUrl = Value(args, "--base-url");
 var applicationValue = Value(args, "--application");
 var version = Value(args, "--version");
 var simulateUpdateValue = Value(args, "--simulate-update");
+var uploadValue = Value(args, "--upload");
 var watch = args.Contains("--watch", StringComparer.OrdinalIgnoreCase);
 if (string.IsNullOrWhiteSpace(token))
     throw new ArgumentException(
@@ -54,6 +55,9 @@ try
         await SimulateUpdateAsync(client, updateApplicationId, stopping.Token);
     }
 
+    if (!string.IsNullOrWhiteSpace(uploadValue))
+        await UploadFileAsync(client, uploadValue, stopping.Token);
+
     do
     {
         await PrintStatusAsync(client, stopping.Token);
@@ -88,7 +92,8 @@ static async Task<string> RegisterAsync(HttpClient client, CancellationToken tok
             scopes = new[]
             {
                 "status.read", "configuration.read", "inventory.read", "inventory.write",
-                "updates.read", "updates.install", "telemetry.write", "events.subscribe"
+                "updates.read", "updates.install", "telemetry.write", "events.subscribe",
+                "uploads.write"
             }
         },
         token);
@@ -98,6 +103,35 @@ static async Task<string> RegisterAsync(HttpClient client, CancellationToken tok
         ?? throw new InvalidOperationException("The Agent did not return an adapter token.");
     Console.WriteLine("System Manager simulator registered with a scoped credential.");
     return adapterToken;
+}
+
+static async Task UploadFileAsync(HttpClient client, string path, CancellationToken token)
+{
+    using var response = await client.PostAsJsonAsync(
+        "/local/v1/uploads",
+        new
+        {
+            localPath = Path.GetFullPath(path), category = "other",
+            schema = "com.fleetcomb.simulator-file/1.0",
+            contentType = "application/octet-stream",
+            metadata = new { submittedBy = "FleetComb System Manager Simulator" },
+            capturedAt = DateTimeOffset.UtcNow
+        }, token);
+    await EnsureSuccessAsync(response, "create the file upload", token);
+    using var created = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
+    var id = created.RootElement.GetProperty("id").GetGuid();
+    Console.WriteLine($"Upload {id} queued for {path}.");
+    while (!token.IsCancellationRequested)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(1), token);
+        using var status = await client.GetAsync($"/local/v1/uploads/{id}", token);
+        await EnsureSuccessAsync(status, "read file upload status", token);
+        using var document = JsonDocument.Parse(await status.Content.ReadAsStringAsync(token));
+        var state = document.RootElement.GetProperty("state").GetString();
+        var progress = document.RootElement.GetProperty("progressPercent").GetInt32();
+        Console.WriteLine($"Upload {id}: {state} ({progress}%).");
+        if (state is "Completed" or "Cancelled" or "Failed") return;
+    }
 }
 
 static async Task SendHeartbeatsAsync(HttpClient client, CancellationToken token)

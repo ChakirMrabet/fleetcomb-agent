@@ -44,6 +44,8 @@ the broader protocol design in `docs/agent-protocol.md` and the cross-repository
   durable offline queue, and local queue diagnostics.
 - Idempotent producer-message delivery in signed heartbeats. FleetComb acknowledges exact message
   IDs before the Agent marks them delivered. FleetComb stores provenance and JSON under tenant RLS.
+- Generic opaque file uploads from allowlisted local roots with SHA-256, 4 MiB resumable chunks,
+  durable progress, automatic retry, cancellation, adapter isolation, and server verification.
 - Manual update discovery and execution request, streamed artifact download, declared length and
   SHA-256 verification, extension/type validation, and EXE/DEB/PKG/ZIP binary-header validation.
 - Durable bounded update-attempt history, live progress, concurrent-run prevention, explicit restart
@@ -74,9 +76,8 @@ Do not run an untrusted `.deb` or `.exe` through the prototype installer. Use an
   arguments, captured/sanitized output, timeouts, reboot handling, rollback, and
   `RecoveryRequired` outcomes.
 - Agent self-update through a separate controlled mechanism.
-- Controlled resumable file and scan/project uploads with allowlisted local paths, checksums,
-  progress, cancellation, private object-storage sessions, and retention rules. The
-  `uploads.write` scope is reserved but no upload endpoint exists yet.
+- FleetComb/local-UI browsing, download/reassembly, retention policies, and format-specific
+  processing for uploaded files. Metadata and private opaque chunks are stored now.
 - FleetComb and local-UI browsing, retention controls, and search for ingested health/events/logs.
   Durable ingestion and forwarding are implemented; those read surfaces are not.
 - Rich producer-originated messages on the event stream. It currently announces Agent state changes,
@@ -190,6 +191,25 @@ Every transition is saved in the current status and bounded 100-attempt history.
 interrupted `Downloading`, `Verified`, or `Installing` attempt becomes explicitly `Failed` instead
 of appearing active forever. `AwaitingAdapter` survives restart so an adapter may complete it.
 
+### Generic file uploads
+
+An adapter with `uploads.write` submits a local path, category (`scan`, `project`, `diagnostic`, or
+`other`), versioned schema, content type, capture time, and arbitrary JSON metadata. The Agent
+accepts files only below a configured root. With no explicit configuration, only
+`DATA_DIRECTORY/upload-inbox` is allowed. It rejects symbolic links so an allowed path cannot escape
+through a link.
+
+Creation inspects the file, enforces the 100 GiB limit, and calculates SHA-256 before returning
+`202 Accepted`. A durable background worker creates a stable FleetComb session and transfers 4 MiB
+chunks. Recreating that session returns existing chunk indexes, so restart or network recovery
+sends only missing chunks. The Agent verifies the source has not changed before resuming.
+
+FleetComb authenticates every create/chunk/complete/cancel call with the signed-request protocol.
+Chunks are private objects and metadata is tenant-isolated by PostgreSQL RLS. On completion,
+FleetComb reads chunks in order and recomputes total length and SHA-256. It does not interpret the
+file format yet. Transient failures retry after 15 seconds; cancellation is durable. If the source
+file changes, create a new upload session so its identity and checksum describe the new bytes.
+
 ### Local persistence and reset
 
 The data directory contains restricted JSON state such as:
@@ -200,6 +220,7 @@ The data directory contains restricted JSON state such as:
 - current update and update-attempt history;
 - adapter identities and token hashes;
 - queued/delivered producer messages;
+- durable file-upload sessions and progress;
 - local UI administrator credentials.
 
 Unix files are restricted to the owning account. Production Windows installation must ACL the data
@@ -243,7 +264,7 @@ Available scopes:
 | `updates.install` | Starting or completing an update |
 | `telemetry.write` | Health, event, and log submission |
 | `events.subscribe` | Adapter connection to the SignalR status hub |
-| `uploads.write` | Reserved for pending file/scan upload sessions |
+| `uploads.write` | Create, list, inspect, cancel, and retry the adapter's file uploads |
 
 ### REST endpoints
 
@@ -269,6 +290,12 @@ All request/response property names use JSON camel case.
 | `POST /local/v1/health` | `telemetry.write` | Queue structured health payload |
 | `POST /local/v1/events` | `telemetry.write` | Queue structured operational event/error |
 | `POST /local/v1/logs` | `telemetry.write` | Redact and queue structured diagnostic log |
+| `GET /local/v1/uploads/configuration` | `uploads.write` | Allowed roots, inbox, categories and limits |
+| `POST /local/v1/uploads` | `uploads.write` | Inspect an allowlisted file and queue an upload |
+| `GET /local/v1/uploads` | `uploads.write` | List this adapter's durable upload sessions |
+| `GET /local/v1/uploads/{uploadId}` | `uploads.write` | Read state, progress, and error |
+| `DELETE /local/v1/uploads/{uploadId}` | `uploads.write` | Request durable cancellation |
+| `POST /local/v1/uploads/{uploadId}/retry` | `uploads.write` | Retry a failed session |
 
 Registration request:
 
@@ -309,6 +336,19 @@ Adapter installation completion:
 { "succeeded": true, "message": "Installed and verified by Customer System Manager." }
 ```
 
+File upload creation:
+
+```json
+{
+  "localPath": "/var/lib/fleetcomb-agent/upload-inbox/example.scan",
+  "category": "scan",
+  "schema": "com.customer.scan-file/1.0",
+  "contentType": "application/octet-stream",
+  "metadata": { "inspectionId": "INS-10042" },
+  "capturedAt": "2026-08-01T18:00:00Z"
+}
+```
+
 ### SignalR events
 
 The hub route is:
@@ -326,6 +366,7 @@ token as SignalR's `access_token` and must have `events.subscribe`. Subscribe to
 - `inventory`
 - `update`
 - `local-integration`
+- `upload`
 
 Treat the notification as invalidation: call the appropriate REST GET endpoint to obtain the latest
 durable state. Do not assume every progress transition is delivered; reconnect and read current
@@ -336,6 +377,8 @@ state. Rich producer-event content on this socket remains pending.
 - REST/JSON protocol version: `1.0`.
 - Telemetry request/payload limit: 64 KiB.
 - Pending producer-message limit: 10,000.
+- Maximum opaque file size: 100 GiB; transfer chunk size: 4 MiB.
+- The local file store retains the latest 500 upload sessions.
 - Producer messages per cloud heartbeat: 100.
 - Registered capabilities: at most 100 strings.
 - Local controller rate limit: 300 requests per minute per Agent process in the current increment.
@@ -364,6 +407,20 @@ The web UI listens on `http://0.0.0.0:5137` by default. Open
 enrollment redirects the first browser visit to password setup. Configure a different bind using
 `AgentWeb__Urls`.
 
+Uploads default to `DATA_DIRECTORY/upload-inbox`. Configure additional absolute roots as follows:
+
+```json
+{
+  "AgentUploads": {
+    "AllowedRoots": ["/data/scans", "/data/projects"]
+  }
+}
+```
+
+Environment configuration uses keys such as
+`AgentUploads__AllowedRoots__0=/data/scans`. A configured list replaces the default inbox-only
+allowlist; include the inbox explicitly if both are required.
+
 Run the example adapter with the bootstrap token:
 
 ```bash
@@ -382,6 +439,10 @@ dotnet run --project tools/FleetComb.SystemManagerSimulator -- \
 # Exercise adapter update handoff with a safe ZIP Release.
 dotnet run --project tools/FleetComb.SystemManagerSimulator -- \
   --token 'BOOTSTRAP-TOKEN' --simulate-update 'APPLICATION-ID' --watch
+
+# Queue an allowlisted opaque file and watch it complete.
+dotnet run --project tools/FleetComb.SystemManagerSimulator -- \
+  --token 'BOOTSTRAP-TOKEN' --upload '/allowed/path/example.scan'
 ```
 
 For the update test, the Asset Product Model must be compatible with an active Platform containing
@@ -406,7 +467,8 @@ dotnet test FleetComb.Agent.slnx
 
 ## Where to resume
 
-The next development slice is controlled resumable file/scan upload sessions. After that, complete
-the trusted release-signing and privileged-installer work before declaring standard EXE/DEB updates
-production-ready. Keep this README and the FleetComb `docs/Features/Agent-Features.MD` ledger updated
-in the same change whenever a feature moves between pending, prototype, and implemented.
+The next development slice is trusted release signing and privileged installers before declaring
+standard EXE/DEB updates production-ready. FleetComb upload browsing/download/reassembly and
+format-specific processing are separate application features; the generic Agent transfer is now
+implemented. Keep this README and the FleetComb `docs/Features/Agent-Features.MD` ledger updated in
+the same change whenever a feature moves between pending, prototype, and implemented.

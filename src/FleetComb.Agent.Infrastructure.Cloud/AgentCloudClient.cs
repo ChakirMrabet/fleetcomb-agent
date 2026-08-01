@@ -108,15 +108,60 @@ public sealed class AgentCloudClient(HttpClient httpClient) : IAgentCloudClient
                 "The downloaded artifact length or SHA-256 checksum does not match the release.");
     }
 
+    public async Task<CloudUploadSession> CreateFileUploadAsync(
+        AgentRegistration state, FileUploadSession upload, CancellationToken token)
+    {
+        using var metadata = JsonDocument.Parse(upload.MetadataJson);
+        var body = JsonSerializer.SerializeToUtf8Bytes(new FileUploadCreateRequest(
+            upload.Id, upload.AdapterId, upload.Category, upload.Schema, upload.FileName,
+            upload.ContentType, upload.Length, upload.Sha256, upload.ChunkSize,
+            upload.ChunkCount, metadata.RootElement.Clone(), upload.CapturedAt), JsonOptions);
+        using var request = SignedRequest(state, "/agent/v1/uploads", body);
+        using var response = await httpClient.SendAsync(request, token);
+        await EnsureSuccessAsync(response, "file upload creation", token);
+        return await response.Content.ReadFromJsonAsync<CloudUploadSession>(JsonOptions, token)
+            ?? throw new InvalidOperationException("FleetComb returned an empty upload session.");
+    }
+
+    public async Task UploadFileChunkAsync(
+        AgentRegistration state, Guid uploadId, int index, byte[] content,
+        CancellationToken token)
+    {
+        using var request = SignedRequest(
+            state, $"/agent/v1/uploads/{uploadId:D}/chunks/{index}", content, HttpMethod.Put);
+        request.Content!.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+        using var response = await httpClient.SendAsync(request, token);
+        await EnsureSuccessAsync(response, $"file upload chunk {index}", token);
+    }
+
+    public Task CompleteFileUploadAsync(
+        AgentRegistration state, Guid uploadId, CancellationToken token) =>
+        SendUploadActionAsync(state, uploadId, "complete", token);
+
+    public Task CancelFileUploadAsync(
+        AgentRegistration state, Guid uploadId, CancellationToken token) =>
+        SendUploadActionAsync(state, uploadId, "cancel", token);
+
+    private async Task SendUploadActionAsync(
+        AgentRegistration state, Guid uploadId, string action, CancellationToken token)
+    {
+        var body = JsonSerializer.SerializeToUtf8Bytes(new { uploadId }, JsonOptions);
+        using var request = SignedRequest(
+            state, $"/agent/v1/uploads/{uploadId:D}/{action}", body);
+        using var response = await httpClient.SendAsync(request, token);
+        await EnsureSuccessAsync(response, $"file upload {action}", token);
+    }
+
     private static HttpRequestMessage SignedRequest(
-        AgentRegistration state, string path, byte[] body)
+        AgentRegistration state, string path, byte[] body, HttpMethod? method = null)
     {
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var nonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
         var bodyHash = Convert.ToHexStringLower(SHA256.HashData(body));
         var payload = AgentIdentityProvider.SignaturePayload(
             state.InstallationId, timestamp, nonce, bodyHash);
-        var request = new HttpRequestMessage(HttpMethod.Post, new Uri(state.ServerUrl, path))
+        var request = new HttpRequestMessage(method ?? HttpMethod.Post, new Uri(state.ServerUrl, path))
         {
             Content = new ByteArrayContent(body)
         };
@@ -158,6 +203,10 @@ public sealed class AgentCloudClient(HttpClient httpClient) : IAgentCloudClient
         Guid Id, Guid AdapterId, long Sequence, string Kind, string Schema,
         string Severity, JsonElement Payload, DateTimeOffset CreatedAt);
     private sealed record ArtifactRequest(Guid SoftwareReleaseId);
+    private sealed record FileUploadCreateRequest(
+        Guid UploadId, Guid AdapterId, string Category, string Schema, string FileName,
+        string ContentType, long Length, string Sha256, int ChunkSize, int ChunkCount,
+        JsonElement Metadata, DateTimeOffset CapturedAt);
     public sealed record HeartbeatResponse(
         DateTimeOffset ServerTime, int NextHeartbeatSeconds, DesiredState DesiredState,
         IReadOnlyList<Guid>? AcceptedProducerMessageIds);

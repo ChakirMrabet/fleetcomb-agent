@@ -19,6 +19,7 @@ public static class ApplicationServiceExtensions
             .AddSingleton<AgentResetService>()
             .AddSingleton<CustomerAdapterService>()
             .AddSingleton<ProducerMessageService>()
+            .AddSingleton<FileUploadService>()
             .AddSingleton<AgentStatusService>();
     }
 }

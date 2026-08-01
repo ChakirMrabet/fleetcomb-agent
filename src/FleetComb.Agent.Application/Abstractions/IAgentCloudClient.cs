@@ -15,6 +15,15 @@ public interface IAgentCloudClient
     Task DownloadReleaseAsync(
         AgentRegistration registration, DesiredRelease release, string destination,
         IProgress<int> progress, CancellationToken cancellationToken);
+    Task<CloudUploadSession> CreateFileUploadAsync(
+        AgentRegistration registration, FileUploadSession upload, CancellationToken token);
+    Task UploadFileChunkAsync(
+        AgentRegistration registration, Guid uploadId, int index, byte[] content,
+        CancellationToken token);
+    Task CompleteFileUploadAsync(
+        AgentRegistration registration, Guid uploadId, CancellationToken token);
+    Task CancelFileUploadAsync(
+        AgentRegistration registration, Guid uploadId, CancellationToken token);
 }
 
 public sealed record EnrollmentClaim(
