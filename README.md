@@ -70,22 +70,35 @@ Do not run an untrusted `.deb` or `.exe` through the prototype installer. Use an
 
 ### Pending
 
-- Structured signed manifests, tenant/publisher trust roots, key rotation/revocation, and
-  cryptographic release verification.
-- A narrowly privileged, allowlisted installer helper for Linux and Windows; package-specific silent
-  arguments, captured/sanitized output, timeouts, reboot handling, rollback, and
-  `RecoveryRequired` outcomes.
-- Agent self-update through a separate controlled mechanism.
+The following five areas remain before the Agent can be considered production-ready:
+
+1. **Trusted release signatures.** Define a structured manifest containing version, target OS and
+   architecture, package type, checksum, and installation instructions. FleetComb must sign it and
+   the Agent must verify it against a trusted publisher key before executing an artifact. Include
+   tenant/publisher trust roots and key rotation/revocation.
+2. **Safe `.deb` and `.exe` installation.** Replace direct package execution with a narrowly
+   privileged, allowlisted installer helper. Support publisher-approved silent arguments,
+   administrator/root permissions, timeouts, captured and sanitized output, reboot requirements,
+   clear failure and `RecoveryRequired` states, and rollback where the package supports it.
+3. **Agent self-update.** Add a separate controlled and recoverable mechanism for updating the Agent
+   itself. Do not process an Agent update as an ordinary customer Application update.
+4. **Production deployment security.** Finish HTTPS provisioning for the LAN UI/API, OS-backed key
+   storage, Agent and adapter credential rotation, Windows directory ACLs, Linux service
+   permissions, log rotation, signed installers, and documented upgrade/uninstall procedures.
+5. **Final end-to-end validation.** Test enrollment, reconnect, offline telemetry, generic uploads,
+   Application installation, restart recovery, cancellation, credential revocation, rollback, and
+   Agent service upgrades on real Windows x64 and Debian/Ubuntu Linux x64 systems.
+
+Additional pending FleetComb/Agent capabilities:
+
 - FleetComb/local-UI browsing, download/reassembly, retention policies, and format-specific
   processing for uploaded files. Metadata and private opaque chunks are stored now.
 - FleetComb and local-UI browsing, retention controls, and search for ingested health/events/logs.
   Durable ingestion and forwarding are implemented; those read surfaces are not.
 - Rich producer-originated messages on the event stream. It currently announces Agent state changes,
   not the contents of producer telemetry.
-- Credential rotation and OS-backed/non-exportable key storage where available.
 - Resumable partial update downloads, distribution/version/prerequisite targeting, malware scanning,
-  diagnostic support bundles, production HTTPS provisioning, signed installers, upgrade/uninstall,
-  log rotation, and broader integration/load/security tests.
+  diagnostic support bundles, and broader integration/load/security tests.
 - macOS packages and offline enrollment.
 
 ## Architecture
@@ -467,8 +480,11 @@ dotnet test FleetComb.Agent.slnx
 
 ## Where to resume
 
-The next development slice is trusted release signing and privileged installers before declaring
-standard EXE/DEB updates production-ready. FleetComb upload browsing/download/reassembly and
-format-specific processing are separate application features; the generic Agent transfer is now
-implemented. Keep this README and the FleetComb `docs/Features/Agent-Features.MD` ledger updated in
-the same change whenever a feature moves between pending, prototype, and implemented.
+Resume Agent work in this order: trusted release manifests/signatures, the privileged platform
+installer, Agent self-update, production deployment security, and final real-machine validation.
+Do not describe standard EXE/DEB installation as production-ready before all five areas are closed.
+
+FleetComb upload browsing/download/reassembly and format-specific processing are separate
+FleetComb application features; the generic Agent transfer is implemented. Keep this README and the
+FleetComb `docs/Features/Agent-Features.MD` ledger updated in the same change whenever a feature
+moves between pending, prototype, and implemented.
