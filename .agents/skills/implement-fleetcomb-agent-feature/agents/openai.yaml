@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implement FleetComb Agent Feature"
+  short_description: "Build a secure cross-platform Agent feature"
+  default_prompt: "Use $implement-fleetcomb-agent-feature to implement this Agent feature."
