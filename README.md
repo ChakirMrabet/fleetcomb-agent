@@ -27,10 +27,12 @@ the broader protocol design in `docs/agent-protocol.md` and the cross-repository
   Application inventory, and queued producer messages.
 - Desired Product, active Software Platform, Application, and matching latest Published Release
   synchronization from FleetComb.
+- Capability-negotiated, versioned Asset authorization rosters with a 30-day lease, certification-
+  bounded `notAfter`, durable restart recovery, and local expiry filtering.
 - Durable Agent-installed and externally reported Application inventory, separate from software
   Entitlements.
 - LAN-accessible Razor Pages UI with local administrator setup/login, connection and Product status,
-  desired Applications, available versions, update actions/progress, optional adapter status,
+  desired Applications, authorized users, available versions, update actions/progress, optional adapter status,
   enrollment reset, and SignalR refresh without reloading.
 - Bootstrap local API credential plus separately issued adapter credentials. Only adapter-token
   SHA-256 hashes are persisted; returned plaintext tokens are shown once.
@@ -40,6 +42,8 @@ the broader protocol design in `docs/agent-protocol.md` and the cross-repository
   logs, protocol limits, and diagnostics.
 - Authenticated SignalR stream for connection, configuration, inventory, adapter, and update change
   notifications.
+- Scoped `GET /local/v1/authorized-users` access and `authorized-users` invalidation events without
+  passwords, email, certification details, or denial reasons.
 - Bounded 64 KiB telemetry payloads, structured secret redaction for logs, a bounded 10,000-message
   durable offline queue, and local queue diagnostics.
 - Idempotent producer-message delivery in signed heartbeats. FleetComb acknowledges exact message
@@ -158,6 +162,11 @@ persists the nonce under a unique key to prevent replay.
 heartbeat sends platform status, Application observations, and up to 100 pending producer messages.
 FleetComb resolves the Asset's Product, compatible active Platforms and Applications, and the latest
 Published Release matching OS and architecture. The Agent persists the response as desired state.
+
+The heartbeat advertises `authorized-users.v1`. FleetComb then includes a nullable schema-versioned
+authorization section with a monotonic policy revision, Asset serial number, and authorized Memberships.
+The Agent persists it in `desired-state.json`; a 30-day lease and earlier certification boundaries
+limit each user's `notAfter`. Older desired-state files without this optional section remain readable.
 
 Reported installations are observations, not entitlements. `AgentInstalled` means the Agent or an
 adapter successfully completed a known Release. `ExternallyReported` means customer software stated
@@ -278,6 +287,7 @@ Available scopes:
 | `telemetry.write` | Health, event, and log submission |
 | `events.subscribe` | Adapter connection to the SignalR status hub |
 | `uploads.write` | Create, list, inspect, cancel, and retry the adapter's file uploads |
+| `access.read` | Read the Asset's currently authorized downstream users |
 
 ### REST endpoints
 
@@ -295,6 +305,7 @@ All request/response property names use JSON camel case.
 | `GET /local/v1/diagnostics` | `status.read` | Protocol plus adapter counts and durable queue pressure |
 | `GET /local/v1/desired-state` | `configuration.read` | Product, Platforms, Applications, matching Releases and revision |
 | `GET /local/v1/applications` | `inventory.read` | Durable installed/reported Application observations |
+| `GET /local/v1/authorized-users` | `access.read` | Effective unexpired Asset authorization roster |
 | `POST /local/v1/applications/report` | `inventory.write` | Report a version installed outside the Agent |
 | `GET /local/v1/updates/current` | `updates.read` | Current update state/progress |
 | `GET /local/v1/updates/history` | `updates.read` | Up to 100 durable update attempts |
@@ -380,6 +391,7 @@ token as SignalR's `access_token` and must have `events.subscribe`. Subscribe to
 - `update`
 - `local-integration`
 - `upload`
+- `authorized-users`
 
 Treat the notification as invalidation: call the appropriate REST GET endpoint to obtain the latest
 durable state. Do not assume every progress transition is delivered; reconnect and read current

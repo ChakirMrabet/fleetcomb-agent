@@ -44,7 +44,7 @@ public sealed class AgentCloudClient(HttpClient httpClient) : IAgentCloudClient
                     message.Id, message.AdapterId, message.Sequence, message.Kind,
                     message.Schema, message.Severity,
                     JsonDocument.Parse(message.PayloadJson).RootElement.Clone(),
-                    message.CreatedAt)).ToArray()),
+                    message.CreatedAt)).ToArray(), AgentCapabilities.All),
             JsonOptions);
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var nonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
@@ -198,7 +198,8 @@ public sealed class AgentCloudClient(HttpClient httpClient) : IAgentCloudClient
     private sealed record HeartbeatRequest(
         string AgentVersion, string ProtocolVersion, long UptimeSeconds, string Health,
         IReadOnlyList<ApplicationObservation> Applications,
-        IReadOnlyList<ProducerMessageRequest> ProducerMessages);
+        IReadOnlyList<ProducerMessageRequest> ProducerMessages,
+        IReadOnlyList<string> Capabilities);
     private sealed record ProducerMessageRequest(
         Guid Id, Guid AdapterId, long Sequence, string Kind, string Schema,
         string Severity, JsonElement Payload, DateTimeOffset CreatedAt);
@@ -214,5 +215,5 @@ public sealed class AgentCloudClient(HttpClient httpClient) : IAgentCloudClient
 
 public static class AgentVersion
 {
-    public const string Current = "0.1.0";
+    public const string Current = "0.2.0";
 }

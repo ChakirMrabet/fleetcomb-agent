@@ -72,7 +72,7 @@ const connection = new signalR.HubConnectionBuilder()
   .build();
 
 connection.on("StatusChanged", change => {
-  if (change === "desired-state") {
+  if (change === "desired-state" || change === "authorized-users") {
     window.location.reload();
     return;
   }

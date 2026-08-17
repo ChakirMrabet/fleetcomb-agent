@@ -12,6 +12,7 @@ public static class ApplicationServiceExtensions
         services.AddMediatR(typeof(ApplicationServiceExtensions));
         services.AddValidatorsFromAssembly(typeof(ApplicationServiceExtensions).Assembly);
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddSingleton(TimeProvider.System);
         return services
             .AddSingleton<EnrollmentService>()
             .AddSingleton<AgentSynchronizationService>()
@@ -20,6 +21,7 @@ public static class ApplicationServiceExtensions
             .AddSingleton<CustomerAdapterService>()
             .AddSingleton<ProducerMessageService>()
             .AddSingleton<FileUploadService>()
+            .AddSingleton<AuthorizationRosterExpirationService>()
             .AddSingleton<AgentStatusService>();
     }
 }

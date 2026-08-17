@@ -48,6 +48,7 @@ public static class ApiServiceExtensions
         services.AddSignalR();
         services.AddSingleton<IAgentStatusNotifier, SignalRAgentStatusNotifier>();
         services.AddHostedService<SynchronizationWorker>();
+        services.AddHostedService<AuthorizationRosterExpirationWorker>();
         services.AddHostedService<FileUploadWorker>();
         return services;
     }

@@ -11,10 +11,11 @@ public static class LocalAdapterScopes
     public const string TelemetryWrite = "telemetry.write";
     public const string UploadsWrite = "uploads.write";
     public const string EventsSubscribe = "events.subscribe";
+    public const string AccessRead = "access.read";
 
     public static readonly IReadOnlyList<string> All =
     [
         StatusRead, ConfigurationRead, InventoryRead, InventoryWrite, UpdatesRead,
-        UpdatesInstall, TelemetryWrite, UploadsWrite, EventsSubscribe
+        UpdatesInstall, TelemetryWrite, UploadsWrite, EventsSubscribe, AccessRead
     ];
 }

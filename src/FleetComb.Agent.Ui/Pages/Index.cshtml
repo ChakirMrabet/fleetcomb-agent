@@ -48,6 +48,7 @@
     <progress id="update-progress" max="100" value="@Model.Update.ProgressPercent"></progress>
   </article>
 </section>
+
 <script src="/agent-ui/signalr.min.js" defer></script>
 <script src="/agent-ui/status.js" defer></script>
 
@@ -96,5 +97,39 @@
         </tbody>
       </table>
     }
+  }
+</section>
+
+<section class="panel" id="authorized-users">
+  <h2>Authorized users</h2>
+  @if (Model.AuthorizedUsers is null)
+  {
+    <p>Authorization data has not synchronized yet.</p>
+  }
+  else if (Model.AuthorizedUsers.Users.Count == 0)
+  {
+    <p>No users are currently authorized for this instrument.</p>
+  }
+  else
+  {
+    <p>
+      <small>
+        Asset @Model.AuthorizedUsers.AssetSerialNumber ·
+        Policy revision @Model.AuthorizedUsers.PolicyRevision
+      </small>
+    </p>
+    <table>
+      <thead><tr><th>User</th><th>Username</th><th>Authorized until</th></tr></thead>
+      <tbody>
+      @foreach (var user in Model.AuthorizedUsers.Users)
+      {
+        <tr>
+          <td>@user.DisplayName</td>
+          <td>@user.Username</td>
+          <td>@user.NotAfter.ToLocalTime().ToString("g")</td>
+        </tr>
+      }
+      </tbody>
+    </table>
   }
 </section>

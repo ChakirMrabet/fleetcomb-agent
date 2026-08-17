@@ -35,6 +35,7 @@ var heartbeat = SendHeartbeatsAsync(client, stopping.Token);
 try
 {
     await PrintDesiredStateAsync(client, stopping.Token);
+    await PrintAuthorizedUsersAsync(client, stopping.Token);
 
     if (!string.IsNullOrWhiteSpace(applicationValue) &&
         Guid.TryParse(applicationValue, out var applicationId) &&
@@ -61,6 +62,7 @@ try
     do
     {
         await PrintStatusAsync(client, stopping.Token);
+        if (watch) await PrintAuthorizedUsersAsync(client, stopping.Token);
         if (watch) await Task.Delay(TimeSpan.FromSeconds(2), stopping.Token);
     } while (watch && !stopping.IsCancellationRequested);
 }
@@ -82,7 +84,7 @@ static async Task<string> RegisterAsync(HttpClient client, CancellationToken tok
         new
         {
             name = "FleetComb System Manager Simulator",
-            version = "0.1.0",
+            version = "0.2.0",
             capabilities = new[]
             {
                 "application-inventory",
@@ -93,7 +95,7 @@ static async Task<string> RegisterAsync(HttpClient client, CancellationToken tok
             {
                 "status.read", "configuration.read", "inventory.read", "inventory.write",
                 "updates.read", "updates.install", "telemetry.write", "events.subscribe",
-                "uploads.write"
+                "uploads.write", "access.read"
             }
         },
         token);
@@ -111,7 +113,8 @@ static async Task UploadFileAsync(HttpClient client, string path, CancellationTo
         "/local/v1/uploads",
         new
         {
-            localPath = Path.GetFullPath(path), category = "other",
+            localPath = Path.GetFullPath(path),
+            category = "other",
             schema = "com.fleetcomb.simulator-file/1.0",
             contentType = "application/octet-stream",
             metadata = new { submittedBy = "FleetComb System Manager Simulator" },
@@ -150,6 +153,19 @@ static async Task PrintDesiredStateAsync(HttpClient client, CancellationToken to
     using var response = await client.GetAsync("/local/v1/desired-state", token);
     await EnsureSuccessAsync(response, "read desired state", token);
     Console.WriteLine("Desired FleetComb configuration:");
+    Console.WriteLine(Pretty(await response.Content.ReadAsStringAsync(token)));
+}
+
+static async Task PrintAuthorizedUsersAsync(HttpClient client, CancellationToken token)
+{
+    using var response = await client.GetAsync("/local/v1/authorized-users", token);
+    if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+    {
+        Console.WriteLine("An authorization roster has not been synchronized yet.");
+        return;
+    }
+    await EnsureSuccessAsync(response, "read authorized users", token);
+    Console.WriteLine("Users currently authorized for this instrument:");
     Console.WriteLine(Pretty(await response.Content.ReadAsStringAsync(token)));
 }
 

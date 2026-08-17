@@ -4,7 +4,29 @@ public sealed record DesiredState(
     Guid AssetId,
     long Revision,
     DesiredProduct? Product,
-    IReadOnlyList<DesiredSoftwarePlatform> SoftwarePlatforms);
+    IReadOnlyList<DesiredSoftwarePlatform> SoftwarePlatforms,
+    DesiredAuthorizationRoster? Authorization = null);
+
+public sealed record DesiredAuthorizationRoster(
+    int SchemaVersion,
+    long Revision,
+    DateTimeOffset GeneratedAt,
+    DateTimeOffset LeaseExpiresAt,
+    string AssetSerialNumber,
+    IReadOnlyList<DesiredAuthorizedUser> Users);
+
+public sealed record DesiredAuthorizedUser(
+    Guid MembershipId,
+    string Username,
+    string DisplayName,
+    DateTimeOffset NotAfter);
+
+public static class AgentCapabilities
+{
+    public const string AuthorizedUsersV1 = "authorized-users.v1";
+
+    public static readonly IReadOnlyList<string> All = [AuthorizedUsersV1];
+}
 
 public sealed record DesiredProduct(Guid Id, string PartNumber, string Name);
 

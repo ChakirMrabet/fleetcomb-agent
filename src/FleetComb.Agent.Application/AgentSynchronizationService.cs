@@ -53,10 +53,13 @@ public sealed class AgentSynchronizationService(
                         DateTimeOffset.UtcNow.Add(delay), ""),
                     cancellationToken);
                 var desiredChanged = DesiredChanged(previousDesired, response.DesiredState);
+                var authorizationChanged = AuthorizationChanged(previousDesired, response.DesiredState);
                 if (desiredChanged || previousStatus.State != "Online")
                     await notifier.NotifyAsync(
                         desiredChanged ? "desired-state" : "synchronization",
                         cancellationToken);
+                if (authorizationChanged)
+                    await notifier.NotifyAsync("authorized-users", cancellationToken);
                 if (synchronized is not null) await synchronized(response);
             }
             catch (HttpRequestException exception)
@@ -87,4 +90,8 @@ public sealed class AgentSynchronizationService(
             current.Product?.PartNumber,
             StringComparison.Ordinal) ||
         !string.Equals(previous.Product?.Name, current.Product?.Name, StringComparison.Ordinal);
+
+    private static bool AuthorizationChanged(DesiredState? previous, DesiredState current) =>
+        previous?.Authorization?.Revision != current.Authorization?.Revision ||
+        (previous?.Authorization is null) != (current.Authorization is null);
 }

@@ -21,6 +21,7 @@ public sealed class IndexModel(IMediator mediator) : PageModel
         SynchronizationStatus.NotEnrolled();
     public CustomerAdapterStatus Adapter { get; private set; } =
         CustomerAdapterStatus.NotConnected();
+    public GetAuthorizedUsers.Result? AuthorizedUsers { get; private set; }
 
     public async Task OnGet(CancellationToken cancellationToken)
     {
@@ -32,6 +33,8 @@ public sealed class IndexModel(IMediator mediator) : PageModel
         Update = status.Update;
         Synchronization = status.Synchronization;
         Adapter = status.Adapter;
+        AuthorizedUsers = await mediator.Send(
+            new GetAuthorizedUsers.Query(), cancellationToken);
     }
 
     public async Task<IActionResult> OnPostInstall(
